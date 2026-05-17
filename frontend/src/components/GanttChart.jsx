@@ -20,7 +20,7 @@ import {
   ArrowDown,
   ChevronUp,
   Upload, FileUp, AlertCircle, Wand2, Shuffle, ArrowRight, CheckCheck, ClipboardCheck, Printer, Eye, LayoutTemplate, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Image as ImageIcon, Type, Table2, Minus,
-  UserCog, GanttChart ,MapPin,Banknote
+  UserCog, GanttChart ,MapPin,Banknote, RefreshCw
 } from "lucide-react";
 
 import jsPDF from "jspdf";
@@ -4437,6 +4437,36 @@ useEffect(() => {
   }
 };
 
+const handleRestoreGroup = async () => {
+  if (!window.confirm(`Voulez-vous vraiment restaurer la formation "${task.group}" pour le groupe ${task.groupe} ?`)) return;
+
+  setIsSaving(true);
+  try {
+    await apiFetch(`/workspaces/${wsId}/gantt/group-restore`, {
+      method: "PATCH",
+      body: { 
+        theme: task.group, 
+        groupe: String(task.groupe) 
+      },
+    });
+
+    if (setCandidats) {
+      setCandidats(prev => prev.map(c =>
+        (c.theme === task.group && String(c.groupe) === String(task.groupe))
+          ? { ...c, statut: "Retenu" } // Restore with a default validated status
+          : c
+      ));
+    }
+
+    showToast("Formation restaurée avec succès", "success");
+  } catch (err) {
+    console.error(err);
+    showToast("Erreur lors de la restauration : " + err.message, "error");
+  } finally {
+    setIsSaving(false);
+  }
+};
+
 const isActuallyCancelled = groupCandidats.length > 0 && groupCandidats.every(c => c.statut === "Annulé");
 
 
@@ -4621,7 +4651,7 @@ const isActuallyCancelled = groupCandidats.length > 0 && groupCandidats.every(c 
   borderTop: "1px solid #f0f0ee", 
   flexShrink: 0, 
   display: "grid", 
-  gridTemplateColumns: "1fr 1fr 1.2fr", // Alignement propre sur une ligne
+  gridTemplateColumns: isActuallyCancelled ? "1fr 1fr 1fr 1.2fr" : "1fr 1fr 1.2fr", // Alignement propre sur une ligne
   gap: 8,
   background: "#fff"
 }}>
@@ -4632,12 +4662,13 @@ const isActuallyCancelled = groupCandidats.length > 0 && groupCandidats.every(c 
       height: 38, border: "1px solid #e3e3e2", background: "#fff", 
       borderRadius: 8, cursor: "pointer", display: "flex", 
       alignItems: "center", justifyContent: "center", gap: 6,
-      fontSize: "12px", fontWeight: 600, color: "#37352f"
+      fontSize: "12px", fontWeight: 600, color: "#37352f",
+      padding: "0 4px"
     }}
     onMouseEnter={e => e.currentTarget.style.background = "#f7f7f5"}
     onMouseLeave={e => e.currentTarget.style.background = "#fff"}
   >
-    <Printer size={14}/> Émargement
+    <Printer size={14}/> {!isActuallyCancelled && "Émargement"}
   </button>
 
   {/* BOUTON ANNULER (DYNAMIQUE) */}
@@ -4652,13 +4683,14 @@ const isActuallyCancelled = groupCandidats.length > 0 && groupCandidats.every(c 
       alignItems: "center", justifyContent: "center", gap: 6,
       fontSize: "12px", fontWeight: 700, 
       color: isActuallyCancelled ? "#9b9a97" : "#d44c47",
-      transition: "all 0.2s"
+      transition: "all 0.2s",
+      padding: "0 4px"
     }}
   >
     {isActuallyCancelled ? (
       <>
         <Check size={14} color="#448361"/> 
-        <span>Annulée (Doc)</span>
+        <span style={{ fontSize: "11px" }}>Doc Annul.</span>
       </>
     ) : (
       <>
@@ -4668,6 +4700,28 @@ const isActuallyCancelled = groupCandidats.length > 0 && groupCandidats.every(c 
     )}
   </button>
 
+  {/* BOUTON RESTAURER (SI ANNULÉ) */}
+  {isActuallyCancelled && (
+    <button 
+      onClick={handleRestoreGroup} 
+      disabled={isSaving}
+      style={{ 
+        height: 38, 
+        border: "1px solid #b5d4f4", 
+        background: "#e8f4fd", 
+        borderRadius: 8, cursor: "pointer", display: "flex", 
+        alignItems: "center", justifyContent: "center", gap: 6,
+        fontSize: "12px", fontWeight: 700, 
+        color: "#1565c0",
+        transition: "all 0.2s",
+        padding: "0 4px"
+      }}
+    >
+      <RefreshCw size={14}/> 
+      <span style={{ fontSize: "11px" }}>Restaurer</span>
+    </button>
+  )}
+
   {/* BOUTON PARAMÈTRES */}
   <button 
     onClick={() => { onEdit(task); onClose(); }} 
@@ -4675,7 +4729,8 @@ const isActuallyCancelled = groupCandidats.length > 0 && groupCandidats.every(c 
       height: 38, border: "none", background: "#37352f", 
       borderRadius: 8, cursor: "pointer", display: "flex", 
       alignItems: "center", justifyContent: "center", gap: 6,
-      fontSize: "12px", fontWeight: 600, color: "#fff"
+      fontSize: "12px", fontWeight: 600, color: "#fff",
+      padding: "0 4px"
     }}
     onMouseEnter={e => e.currentTarget.style.background = "#222"}
     onMouseLeave={e => e.currentTarget.style.background = "#37352f"}

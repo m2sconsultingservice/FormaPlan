@@ -30,8 +30,8 @@ app.use(cors({
     'https://gantt-pied.vercel.app', 
     'https://m2s-formaplan.vercel.app',
     'https://format-plan.vercel.app',
-    'https://sparkling-empathy-production-05b3.up.railway.app',
-    'https://formatplan-production.up.railway.app'
+    "https://formatplan-production-4aa2.up.railway.app"
+
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
@@ -1713,6 +1713,39 @@ app.patch("/api/workspaces/:wsId/gantt/group-cancel", authenticateToken, async (
     }
 
     res.json({ success: true, message: "Formation annulée en base de données" });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.patch("/api/workspaces/:wsId/gantt/group-restore", authenticateToken, async (req, res, next) => {
+  try {
+    const { wsId } = req.params;
+    const { theme, groupe } = req.body;
+
+    const themeClean = theme.trim();
+    const grpFilter = { $in: [String(groupe), Number(groupe)] };
+
+    // 1. On restaure tous les candidats de ce groupe à "Retenu"
+    await Candidat.updateMany(
+      { workspaceId: wsId, theme: themeClean, groupe: grpFilter },
+      { $set: { statut: "Retenu" } }
+    );
+
+    // 2. On met aussi à jour le snapshot Gantt pour la cohérence
+    const snap = await GanttSnapshot.findOne({ workspaceId: wsId });
+    if (snap) {
+      snap.candidats = snap.candidats.map(c => {
+        if (c.theme === themeClean && String(c.groupe) === String(groupe)) {
+          return { ...c.toObject(), statut: "Retenu" };
+        }
+        return c;
+      });
+      snap.markModified("candidats");
+      await snap.save();
+    }
+
+    res.json({ success: true, message: "Formation restaurée en base de données" });
   } catch (e) {
     next(e);
   }
