@@ -4,8 +4,20 @@ import { FileText, BarChart2, User, Receipt, Presentation, File } from "lucide-r
 /* ═══════════════════════════════════════════════════════════
    API CONFIG
 ══════════════════════════════════════════════════════════ */
-export const API_BASE = (typeof import_meta_env !== "undefined" && import_meta_env?.VITE_API_URL) || "http://localhost:5000/api" || "https://formatplan-production.up.railway.app/api";
+const getApiBase = () => {
+  let url = "http://localhost:5000/api";
+  try { if (import.meta.env && import.meta.env.VITE_API_URL) url = import.meta.env.VITE_API_URL; } catch(e) {}
+  
+  // Tauri mobile app sur Android - `localhost` sur le téléphone pointe vers lui-même.
+  // Pour contacter l'ordinateur de développement depuis l'émulateur, on utilise `10.0.2.2`.
+  if (typeof window !== "undefined" && window.__TAURI_INTERNALS__) {
+    // Si l'utilisateur est sur un émulateur et que .env utilise localhost
+    url = url.replace("localhost", "10.0.2.2").replace("127.0.0.1", "10.0.2.2");
+  }
+  return url;
+};
 
+export const API_BASE = getApiBase();
 export function norm(o) {
   if (!o) return o;
   const out = { ...o, id: o._id || o.id };
