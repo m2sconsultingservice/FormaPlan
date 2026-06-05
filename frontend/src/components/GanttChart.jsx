@@ -168,7 +168,7 @@ const generateAttendancePDF = (doc, allCandidates) => {
 };
 
 const API_BASE = (typeof import_meta_env !== "undefined" && import_meta_env?.VITE_API_URL)
-  || "http://localhost:5000/api" || "https://formatplan-production.up.railway.app/api";
+  || "https://formatplan-production-4aa2.up.railway.app/api";
 
 function norm(o) {
   if (!o) return o;
@@ -13541,10 +13541,10 @@ function DocsView({currentUser, documents, setDocuments, wsId, showToast, candid
 
   // ── Colonnes table selon taille écran ──
   const tableColumns = isMobile
-    ? "1fr 60px"           // mobile  : Nom + Actions
+    ? "minmax(0, 1fr) 60px"           // mobile  : Nom + Actions
     : isTablet
-      ? "3fr 1fr 80px"     // tablette: Nom + Statut + Actions
-      : "3fr 1fr 1fr 1fr 80px"; // desktop : tout
+      ? "minmax(0, 1fr) 110px 92px"     // tablette: Nom + Statut + Actions
+      : "minmax(0, 1.8fr) 130px 120px 130px 112px"; // desktop : tout
 
   const tableHeaders = isMobile
     ? ["Document", ""]
@@ -13731,49 +13731,50 @@ function DocsView({currentUser, documents, setDocuments, wsId, showToast, candid
 
       ) : (
         /* ── Vue Table (desktop + tablette) ── */
-        <div style={{ border: `1px solid ${T.pageBdr}`, borderRadius: 4, overflow: "hidden" }}>
-          <div style={{ display: "grid", gridTemplateColumns: tableColumns, background: "rgba(55,53,47,0.03)", borderBottom: `1px solid ${T.pageBdr}`, padding: "0 16px" }}>
+        <div style={{ border: `1px solid ${T.pageBdr}`, borderRadius: 4, overflow: "visible", background: "#fff" }}>
+          <div style={{ display: "grid", gridTemplateColumns: tableColumns, columnGap: 16, background: "#f7f7f7", borderBottom: `1px solid ${T.pageBdr}`, padding: "0 16px", position: "sticky", top: 0, zIndex: 10, borderTopLeftRadius: 3, borderTopRightRadius: 3 }}>
             {tableHeaders.map(h => (
               <div key={h} style={{ padding: "7px 0", fontSize: 10, fontWeight: 600, color: T.pageTer, textTransform: "uppercase", letterSpacing: "0.06em" }}>{h}</div>
             ))}
           </div>
-          {filtered.map((doc, i) => {
-            const ds = DOC_STATUS.find(s => s.key === doc.statut) || DOC_STATUS[0];
-            return (
-              <div key={doc.id} style={{
-                display: "grid", gridTemplateColumns: tableColumns,
-                padding: "0 16px", borderBottom: i < filtered.length - 1 ? `1px solid ${T.pageBdr}` : "none",
-                alignItems: "center", background: "#fff", transition: "background 0.06s",
-              }}
-                onMouseEnter={e => e.currentTarget.style.background = T.pageHov}
-                onMouseLeave={e => e.currentTarget.style.background = "#fff"}
-              >
+          <div style={{ maxHeight: `calc(100vh - ${isTablet ? 300 : 320}px)`, minHeight: 0, overflowY: "auto" }}>
+            {filtered.map((doc, i) => {
+              const ds = DOC_STATUS.find(s => s.key === doc.statut) || DOC_STATUS[0];
+              return (
+                <div key={doc.id} style={{
+                  display: "grid", gridTemplateColumns: tableColumns, columnGap: 16,
+                  padding: "0 16px", borderBottom: i < filtered.length - 1 ? `1px solid ${T.pageBdr}` : "none",
+                  alignItems: "center", background: "#fff", transition: "background 0.06s",
+                }}
+                  onMouseEnter={e => e.currentTarget.style.background = T.pageHov}
+                  onMouseLeave={e => e.currentTarget.style.background = "#fff"}
+                >
                 {/* Colonne Nom — toujours visible */}
-                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", minWidth: 0 }}>
                   <div style={{ width: 28, height: 28, borderRadius: 4, background: `${DOC_COLOR[doc.type] || "#787774"}12`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                     <DocIcon type={doc.type} size={14} />
                   </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: T.pageText, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.nom}</div>
+                  <div style={{ minWidth: 0, maxWidth: "100%" }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: T.pageText, lineHeight: 1.35, whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "break-word" }}>{doc.nom}</div>
                     {/* Sur tablette : type affiché sous le nom */}
                     {isTablet && !isMobile && (
-                      <div style={{ fontSize: 11, color: T.pageSub }}>{doc.type}{doc.dateDoc ? ` · ${fmtFr(doc.dateDoc)}` : ""}</div>
+                      <div style={{ fontSize: 11, color: T.pageSub, marginTop: 2, overflowWrap: "anywhere" }}>{doc.type}{doc.dateDoc ? ` · ${fmtFr(doc.dateDoc)}` : ""}</div>
                     )}
                     {doc.notes && !isTablet && <div style={{ fontSize: 11, color: T.pageSub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.notes}</div>}
                   </div>
                 </div>
 
                 {/* Type — desktop seulement */}
-                {!isTablet && <span style={{ fontSize: 12, color: T.pageSub }}>{doc.type}</span>}
+                {!isTablet && <span style={{ fontSize: 12, color: T.pageSub, minWidth: 0, overflowWrap: "anywhere" }}>{doc.type}</span>}
 
                 {/* Date — desktop seulement */}
-                {!isTablet && <span style={{ fontSize: 12, color: T.pageSub }}>{doc.dateDoc ? fmtFr(doc.dateDoc) : "—"}</span>}
+                {!isTablet && <span style={{ fontSize: 12, color: T.pageSub, minWidth: 0 }}>{doc.dateDoc ? fmtFr(doc.dateDoc) : "—"}</span>}
 
                 {/* Statut — desktop + tablette */}
-                <div><Tag label={doc.statut} scheme={{ text: ds.text, bg: ds.bg }} /></div>
+                <div style={{ minWidth: 0 }}><Tag label={doc.statut} scheme={{ text: ds.text, bg: ds.bg }} /></div>
 
                 {/* Actions */}
-                <div style={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
+                <div style={{ display: "flex", gap: 2, justifyContent: "flex-end", minWidth: 0 }}>
                   {isEmargement(doc) && (
                     <button onClick={() => setPreviewItem(doc)} title="Aperçu" style={{ width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 3, border: "none", background: "#448361", color: "#fff", cursor: "pointer" }}>
                       <Printer style={{ width: 12, height: 12 }} />
@@ -13815,9 +13816,10 @@ function DocsView({currentUser, documents, setDocuments, wsId, showToast, candid
                     <Trash2 style={{ width: 11, height: 11 }} />
                   </button>
                 </div>
-              </div>
-            );
-          })}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

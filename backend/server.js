@@ -30,7 +30,8 @@ app.use(cors({
     'https://gantt-pied.vercel.app', 
     'https://m2s-formaplan.vercel.app',
     'https://format-plan.vercel.app',
-    "https://formatplan-production-4aa2.up.railway.app"
+    "https://formatplan-production-4aa2.up.railway.app",
+    
 
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
