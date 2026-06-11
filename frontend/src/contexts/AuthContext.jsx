@@ -1,8 +1,15 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 
-const AUTH_BASE = (typeof import_meta_env !== "undefined" && import_meta_env?.VITE_API_URL)
-  ? `${import_meta_env.VITE_API_URL}/auth`
-  : "https://formatplan-production-4aa2.up.railway.app/api/auth";
+const getApiBase = () => {
+  const envUrl = import.meta.env?.VITE_API_URL;
+  if (envUrl) return envUrl.replace(/\/$/, "");
+  if (typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname)) {
+    return "http://localhost:5000/api";
+  }
+  return "https://formatplan-production-4aa2.up.railway.app/api";
+};
+
+const AUTH_BASE = `${getApiBase()}/auth`;
 
   //https://sparkling-empathy-production-05b3.up.railway.app
   //http://localhost:5000

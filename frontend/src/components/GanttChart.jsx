@@ -167,8 +167,16 @@ const generateAttendancePDF = (doc, allCandidates) => {
   pdf.save(`${doc.nom}.pdf`);
 };
 
-const API_BASE = (typeof import_meta_env !== "undefined" && import_meta_env?.VITE_API_URL)
-  || "https://formatplan-production-4aa2.up.railway.app/api";
+const getApiBase = () => {
+  const envUrl = import.meta.env?.VITE_API_URL?.replace(/\/$/, "");
+  if (envUrl) return envUrl;
+  if (typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname)) {
+    return "http://localhost:5000/api";
+  }
+  return "https://formatplan-production-4aa2.up.railway.app/api";
+};
+
+const API_BASE = getApiBase();
 
 function norm(o) {
   if (!o) return o;
@@ -14017,8 +14025,11 @@ function ProfileView({ currentUser, onSave, showToast, wsId }) {
   });
 
   const [team, setTeam] = useState([]);
+  const [adminUsers, setAdminUsers] = useState([]);
   const [allWorkspaces, setAllWorkspaces] = useState([]);
   const [loadingTeam, setLoadingTeam] = useState(false);
+  const [loadingAdminUsers, setLoadingAdminUsers] = useState(false);
+  const [savingShareUserId, setSavingShareUserId] = useState(null);
   const [showTeamForm, setShowTeamForm] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
 
@@ -14039,8 +14050,54 @@ function ProfileView({ currentUser, onSave, showToast, wsId }) {
         })
         .catch(e => console.error(e))
         .finally(() => setLoadingTeam(false));
+    } else if (currentUser?.role === "admin") {
+      setLoadingAdminUsers(true);
+      Promise.all([apiFetch("/auth/users"), apiFetch("/workspaces")])
+        .then(([usersRes, wsRes]) => {
+          setAdminUsers((Array.isArray(usersRes) ? usersRes : []).filter(u => u.role !== "admin"));
+          setAllWorkspaces(wsRes.data || []);
+        })
+        .catch(e => {
+          console.error(e);
+          showToast("Erreur lors du chargement des utilisateurs", "error");
+        })
+        .finally(() => setLoadingAdminUsers(false));
     }
   }, [currentUser]);
+
+  const updateAdminUserWorkspaces = (userId, allowedWorkspaces) => {
+    setAdminUsers(prev => prev.map(u => u._id === userId || u.id === userId ? { ...u, allowedWorkspaces } : u));
+  };
+
+  const saveAdminUserShare = async (user) => {
+    const userId = user._id || user.id;
+    setSavingShareUserId(userId);
+    try {
+      const res = await apiFetch(`/auth/users/${userId}/workspaces`, {
+        method: "PUT",
+        body: { allowedWorkspaces: user.allowedWorkspaces || [] },
+      });
+      setAdminUsers(prev => prev.map(u => (u._id || u.id) === userId ? res.user : u));
+      showToast("Partage mis à jour", "success");
+    } catch (e) {
+      showToast(e.message, "error");
+    } finally {
+      setSavingShareUserId(null);
+    }
+  };
+
+  const deleteAdminUser = async (user) => {
+    const userId = user._id || user.id;
+    const label = user.displayName || user.username;
+    if (!window.confirm(`Supprimer le compte "${label}" ?`)) return;
+    try {
+      await apiFetch(`/auth/users/${userId}`, { method: "DELETE" });
+      setAdminUsers(prev => prev.filter(u => (u._id || u.id) !== userId));
+      showToast("Compte supprimé", "success");
+    } catch (e) {
+      showToast(e.message, "error");
+    }
+  };
 
   const openTeamForm = (u = null) => {
     setEditingUser(u);
@@ -14111,7 +14168,7 @@ function ProfileView({ currentUser, onSave, showToast, wsId }) {
   const btnBase = { border: "none", background: "none", cursor: "pointer", fontFamily: "inherit" };
 
   return (
-    <div style={{ padding: "32px 40px", maxWidth: 660, margin: "0 auto" }}>
+    <div style={{ padding: "32px 40px", maxWidth: 780, margin: "0 auto" }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 20, fontWeight: 700, color: "#37352f", margin: "0 0 4px" }}>Mon profil</h1>
         <p style={{ fontSize: 13, color: "#9b9a97", margin: 0 }}>Gérez vos informations et votre équipe.</p>
@@ -14198,6 +14255,59 @@ function ProfileView({ currentUser, onSave, showToast, wsId }) {
       )}
 
       {/* GESTION ÉQUIPE */}
+      {currentUser?.role === "admin" && (
+        <div style={cardStyle}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>Partage des workspaces</div>
+              <div style={{ fontSize: 11, color: "#9b9a97" }}>Attribuez des workspaces aux utilisateurs existants</div>
+            </div>
+          </div>
+
+          {loadingAdminUsers ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "16px 0", fontSize: 12, color: "#6b6b6b" }}>
+              <Spinner size={13} color={T.accent} /> Chargement des utilisateurs...
+            </div>
+          ) : adminUsers.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "20px", color: "#999", fontSize: 12 }}>Aucun utilisateur disponible.</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {adminUsers.map(user => {
+                const userId = user._id || user.id;
+                const allowedWorkspaces = (user.allowedWorkspaces || []).map(String);
+                return (
+                  <div key={userId} style={{ display: "grid", gridTemplateColumns: "minmax(150px, 1fr) minmax(220px, 1.5fr) auto auto", gap: 10, alignItems: "center", padding: "12px", borderRadius: 8, border: "1px solid #f0f0ee", background: "#fafaf9" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#37352f", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.displayName || user.username}</div>
+                      <div style={{ fontSize: 11, color: "#9b9a97", marginTop: 2 }}>{user.username}</div>
+                    </div>
+                    <WorkspaceSelector
+                      allWorkspaces={allWorkspaces}
+                      selectedIds={allowedWorkspaces}
+                      onChange={(ids) => updateAdminUserWorkspaces(userId, ids)}
+                    />
+                    <button
+                      onClick={() => saveAdminUserShare(user)}
+                      disabled={savingShareUserId === userId}
+                      style={{ ...btnBase, height: 38, padding: "0 14px", borderRadius: 6, background: "#000", color: "#fff", fontSize: 12, fontWeight: 600, opacity: savingShareUserId === userId ? 0.65 : 1 }}
+                    >
+                      {savingShareUserId === userId ? "..." : "Sauver"}
+                    </button>
+                    <button
+                      onClick={() => deleteAdminUser(user)}
+                      style={{ ...btnBase, width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 6, border: "1px solid rgba(212,76,71,0.25)", color: "#d44c47", background: "#fff" }}
+                      title="Supprimer le compte"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {currentUser && !currentUser.parentId && currentUser.role !== "admin" && (
         <div style={cardStyle}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>

@@ -635,6 +635,36 @@ app.get("/api/auth/users", authenticateToken, async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Erreur serveur" }); }
 });
 
+app.put("/api/auth/users/:id/workspaces", authenticateToken, async (req, res) => {
+  if (req.user.role !== "admin") return res.status(403).json({ error: "Accès non autorisé" });
+  try {
+    const { allowedWorkspaces = [] } = req.body;
+    const user = await User.findById(req.params.id).select("-password");
+    if (!user) return res.status(404).json({ error: "Utilisateur non trouvé" });
+    if (user.role === "admin") return res.status(400).json({ error: "Impossible de modifier les accès admin" });
+
+    user.allowedWorkspaces = allowedWorkspaces;
+    await user.save();
+    res.json({ success: true, user });
+  } catch (err) { res.status(500).json({ error: "Erreur serveur" }); }
+});
+
+app.delete("/api/auth/users/:id", authenticateToken, async (req, res) => {
+  if (req.user.role !== "admin") return res.status(403).json({ error: "Accès non autorisé" });
+  try {
+    if (String(req.user.id) === String(req.params.id)) {
+      return res.status(400).json({ error: "Impossible de supprimer votre propre compte" });
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: "Utilisateur non trouvé" });
+    if (user.role === "admin") return res.status(400).json({ error: "Impossible de supprimer un compte admin" });
+
+    await User.deleteOne({ _id: req.params.id });
+    res.json({ success: true, message: "Compte supprimé" });
+  } catch (err) { res.status(500).json({ error: "Erreur serveur" }); }
+});
+
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", version: "2.2.0", time: new Date().toISOString() });
 });
@@ -650,7 +680,14 @@ app.param('wsId', async (req, res, next, wsId) => {
   if (wsId !== "import" && req.user && req.user.role !== "admin") {
     try {
       const ownerId = req.user.parentId || req.user.id;
-      const ws = await Workspace.findOne({ _id: wsId, owner: ownerId });
+      const user = await User.findById(req.user.id).select("allowedWorkspaces");
+      const ws = await Workspace.findOne({
+        _id: wsId,
+        $or: [
+          { owner: ownerId },
+          { _id: { $in: user?.allowedWorkspaces || [] } },
+        ],
+      });
       if (!ws) return res.status(403).json({ success: false, message: "Accès refusé à cet espace de travail" });
     } catch (e) {
       return res.status(400).json({ success: false, message: "ID Workspace invalide" });
@@ -670,8 +707,12 @@ app.get("/api/workspaces", async (req, res, next) => {
       const user = await User.findById(req.user.id);
       filter._id = { $in: user.allowedWorkspaces };
     } else {
-      // Si c'est un compte principal, il voit ses propres workspaces
-      filter.owner = req.user.id;
+      // Si c'est un compte principal, il voit ses propres workspaces + ceux partagés par l'admin
+      const user = await User.findById(req.user.id);
+      filter.$or = [
+        { owner: req.user.id },
+        { _id: { $in: user.allowedWorkspaces || [] } },
+      ];
     }
 
     const data = await Workspace.find(filter).sort({ createdAt: -1 });
@@ -683,7 +724,12 @@ app.get("/api/workspaces/:id", async (req, res, next) => {
   try {
     const filter = { _id: req.params.id };
     if (req.user && req.user.role !== "admin") {
-      filter.owner = req.user.parentId || req.user.id;
+      const ownerId = req.user.parentId || req.user.id;
+      const user = await User.findById(req.user.id).select("allowedWorkspaces");
+      filter.$or = [
+        { owner: ownerId },
+        { _id: { $in: user?.allowedWorkspaces || [] } },
+      ];
     }
     const ws = await Workspace.findOne(filter);
     if (!ws) return res.status(404).json({ success: false, message: "Workspace introuvable ou accès refusé" });

@@ -5,8 +5,11 @@ import { FileText, BarChart2, User, Receipt, Presentation, File } from "lucide-r
    API CONFIG
 ══════════════════════════════════════════════════════════ */
 const getApiBase = () => {
-  let url = "https://formatplan-production-4aa2.up.railway.app/api";
-  try { if (import.meta.env && import.meta.env.VITE_API_URL) url = import.meta.env.VITE_API_URL; } catch(e) {}
+  let url = import.meta.env?.VITE_API_URL?.replace(/\/$/, "");
+  if (!url && typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname)) {
+    url = "http://localhost:5000/api";
+  }
+  if (!url) url = "https://formatplan-production-4aa2.up.railway.app/api";
   
   // Tauri mobile app sur Android - `localhost` sur le téléphone pointe vers lui-même.
   // Pour contacter l'ordinateur de développement depuis l'émulateur, on utilise `10.0.2.2`.
