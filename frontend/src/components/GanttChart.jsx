@@ -1625,7 +1625,7 @@ const ws = await onCreate({
   );
 }
 
-function Overview({ ws, tasks, candidats, documents, onSection, loading, onDeleteWs, onUpdateWs, onSelectWs, globalYear, onYearChange }) {
+function Overview({ ws, tasks, candidats, documents, onSection, loading, onDeleteWs, onUpdateWs, onSelectWs, globalYear, onYearChange, onImportCandidats, onManualCandidats, canImportCandidats = true }) {
   const { w } = useWindowSize();
   const isMobile = w < 640;
   const isTablet  = w >= 640 && w < 1024;
@@ -2523,6 +2523,22 @@ const saveEdit = async () => {
   <CalendarRange style={{ width:11, height:11 }} />
   {isMobile ? "Année" : `Année ${ws.annee || new Date(ws.startDate).getFullYear()}`}
 </button>
+            {canImportCandidats && (
+              <button onClick={onImportCandidats}
+                style={{ display:"flex", alignItems:"center", gap:5, padding:"5px 11px", fontSize:12, fontWeight:500, color:T.pageText, background:"#fff", border:`1px solid ${T.pageBdr}`, borderRadius:6, cursor:"pointer", fontFamily:"inherit" }}
+                onMouseEnter={e => e.currentTarget.style.background = "#f7f7f5"}
+                onMouseLeave={e => e.currentTarget.style.background = "#fff"}>
+                <FileStack style={{ width:11, height:11 }} />
+                {isMobile ? "Importer" : "Importer"}
+              </button>
+            )}
+            <button onClick={onManualCandidats}
+              style={{ display:"flex", alignItems:"center", gap:5, padding:"5px 11px", fontSize:12, fontWeight:500, color:T.pageText, background:"#fff", border:`1px solid ${T.pageBdr}`, borderRadius:6, cursor:"pointer", fontFamily:"inherit" }}
+              onMouseEnter={e => e.currentTarget.style.background = "#f7f7f5"}
+              onMouseLeave={e => e.currentTarget.style.background = "#fff"}>
+              <Table2 style={{ width:11, height:11 }} />
+              {isMobile ? "Manuel" : "Saisie manuelle"}
+            </button>
             {ws.hasExportBase && (
               <button onClick={openExport}
                 style={{ display:"flex", alignItems:"center", gap:5, padding:"5px 11px", fontSize:12, fontWeight:500, color:"#3b6d11", background:"#eaf3de", border:"1px solid #c0dd97", borderRadius:6, cursor:"pointer", fontFamily:"inherit" }}
@@ -5599,7 +5615,8 @@ function GanttView({
   tasks, setTasks,
   candidats = [], setCandidats, setDocuments,
   wsId, showToast,
-  wsWorkingDays, wsSkipHolidays, wsVacances, onUpdateWs, ws
+  wsWorkingDays, wsSkipHolidays, wsVacances, onUpdateWs, ws,
+  onImportCandidats, onManualCandidats, canImportCandidats = true
 }) {
   const { wd, setWd, sh, setSh, vacs, setVacs } = usePlanningSettings(wsId, wsWorkingDays, wsSkipHolidays, wsVacances, onUpdateWs);
 
@@ -6131,14 +6148,16 @@ const confirmUpdate = useCallback(async () => {
         )}
 
         <div className="gantt-toolbar-right" style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:6}}>
+          {canImportCandidats && (
+            <button onClick={onImportCandidats} style={{display:"flex",alignItems:"center",gap:5,height:26,padding:"0 10px",fontSize:13,fontWeight:500,color:T.pageText,background:"transparent",border:`1px solid rgba(55,53,47,0.25)`,borderRadius:4,cursor:"pointer",fontFamily:"inherit"}}>
+              <FileStack style={{width:13,height:13}}/> Importer
+            </button>
+          )}
+          <button onClick={onManualCandidats} style={{display:"flex",alignItems:"center",gap:5,height:26,padding:"0 10px",fontSize:13,fontWeight:500,color:T.pageText,background:"transparent",border:`1px solid rgba(55,53,47,0.25)`,borderRadius:4,cursor:"pointer",fontFamily:"inherit"}}>
+            <Table2 style={{width:13,height:13}}/> Saisie manuelle
+          </button>
           <button onClick={exportGantt} disabled={displayTasks.length===0} style={{display:"flex",alignItems:"center",gap:5,height:26,padding:"0 10px",fontSize:13,fontWeight:500,color:T.pageText,background:"transparent",border:`1px solid rgba(55,53,47,0.25)`,borderRadius:4,cursor:displayTasks.length===0?"not-allowed":"pointer",fontFamily:"inherit",opacity:displayTasks.length===0?0.4:1}}>
             <FileUp style={{width:13,height:13}}/> Exporter Excel
-          </button>
-
-
-
-          <button onClick={()=>{setEditId("new");setForm({group:"",groupe:"",start:"",end:"",nbJ:1});}} style={{display:"flex",alignItems:"center",gap:5,height:26,padding:"0 10px",fontSize:13,fontWeight:500,color:"#fff",background:"#37352f",border:"none",borderRadius:4,cursor:"pointer",fontFamily:"inherit"}}>
-            <Plus style={{width:13,height:13}}/> Nouvelle tâche
           </button>
         </div>
       </div>
@@ -6393,7 +6412,17 @@ const confirmUpdate = useCallback(async () => {
         <div style={{textAlign:"center",padding:"40px 20px",color:T.pageTer,fontSize:13,marginTop:16}}>
           <CalendarRange style={{width:32,height:32,color:T.pageTer,strokeWidth:1.4,marginBottom:10}}/>
           <div style={{fontWeight:600,color:T.pageSub,marginBottom:4}}>Aucun candidat importé</div>
-          <div>Importez vos données via l'assistant multi-bases pour voir la planification.</div>
+          <div>Importez vos données ou saisissez les candidats ligne par ligne pour voir la planification.</div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginTop:14,flexWrap:"wrap"}}>
+            {canImportCandidats&&(
+              <button onClick={onImportCandidats} style={{display:"flex",alignItems:"center",gap:6,height:32,padding:"0 12px",fontSize:13,fontWeight:600,color:T.pageText,background:"#fff",border:`1px solid rgba(55,53,47,0.25)`,borderRadius:4,cursor:"pointer",fontFamily:"inherit"}}>
+                <FileStack style={{width:14,height:14}}/>Importer
+              </button>
+            )}
+            <button onClick={onManualCandidats} style={{display:"flex",alignItems:"center",gap:6,height:32,padding:"0 12px",fontSize:13,fontWeight:600,color:"#fff",background:"#37352f",border:"none",borderRadius:4,cursor:"pointer",fontFamily:"inherit"}}>
+              <Table2 style={{width:14,height:14}}/>Saisie manuelle
+            </button>
+          </div>
         </div>
       )}
 
@@ -6686,6 +6715,340 @@ function CModal({ item, onClose, onSave }) {
           <div style={{ gridColumn: "span 2" }}><div style={{ fontSize: 11, fontWeight: 600, color: T.pageSub, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 5 }}>Notes</div><textarea value={f.notes || ""} onChange={e => setF(p => ({ ...p, notes: e.target.value }))} rows={3} style={{ width: "100%", boxSizing: "border-box", padding: "7px 10px", borderRadius: 4, border: `1px solid rgba(55,53,47,0.2)`, fontSize: 13, color: T.pageText, outline: "none", fontFamily: "inherit", resize: "vertical" }} /></div>
         </div>
         <div style={{ padding: "12px 24px", borderTop: `1px solid ${T.pageBdr}`, display: "flex", justifyContent: "flex-end", gap: 8, background: "rgba(55,53,47,0.02)" }}><button onClick={onClose} style={{ padding: "6px 14px", fontSize: 13, color: T.pageSub, background: "transparent", border: `1px solid rgba(55,53,47,0.2)`, borderRadius: 4, cursor: "pointer", fontFamily: "inherit" }}>Annuler</button><button onClick={() => { if (!f.nom.trim() || !f.prenom.trim()) return; onSave(f); onClose(); }} style={{ padding: "6px 14px", fontSize: 13, fontWeight: 600, color: "#fff", background: "#37352f", border: "none", borderRadius: 4, cursor: "pointer", fontFamily: "inherit" }} onMouseEnter={e => e.currentTarget.style.background = "#111"} onMouseLeave={e => e.currentTarget.style.background = "#37352f"}>{item ? "Enregistrer" : "Ajouter"}</button></div>
+      </div>
+    </div>
+  );
+}
+
+const MANUAL_REQUIRED_COLS = [
+  { key: "nom", label: "Nom" },
+  { key: "prenom", label: "Prénom" },
+  { key: "theme", label: "Thème / Formation" },
+];
+const MANUAL_DEFAULT_COLS = [
+  ...MANUAL_REQUIRED_COLS,
+  { key: "matricule", label: "Matricule" },
+  { key: "poste", label: "Poste / Fonction" },
+  { key: "groupe", label: "Groupe" },
+  { key: "jours", label: "Jours" },
+  { key: "notes", label: "Notes" },
+];
+const MANUAL_BASE_KEYS = new Set([
+  "nom", "prenom", "theme", "matricule", "poste", "groupe", "jours", "notes",
+  "departement", "heures", "statut", "dateDebut", "dateFin", "lieu", "cabinet",
+  "cout", "formateur", "contact", "domaine", "objectif", "contenu", "niveau", "publicCible",
+]);
+
+function ManualCandidatsSheet({ candidats, tasks = [], wsId, onClose, onSave, saving }) {
+  const makeRows = count => Array.from({ length: count }, () => ({ _id: `${Date.now()}_${Math.random().toString(36).slice(2)}` }));
+  const [columns, setColumns] = useState(MANUAL_DEFAULT_COLS);
+  const [rows, setRows] = useState(makeRows(10));
+  const [newColumn, setNewColumn] = useState("");
+  const [error, setError] = useState("");
+  const [formations, setFormations] = useState([]);
+  const [activeCell, setActiveCell] = useState(null);
+  const [suggestRect, setSuggestRect] = useState(null);
+  const [cellW, setCellW] = useState(165);
+  const [cellH, setCellH] = useState(32);
+  const [resizing, setResizing] = useState(null);
+  const [fillDrag, setFillDrag] = useState(null);
+  const fillDragRef = useRef(null);
+
+  const requiredKeys = new Set(MANUAL_REQUIRED_COLS.map(c => c.key));
+
+  useEffect(() => {
+    if (!wsId) return;
+    let alive = true;
+    apiFetch(`/workspaces/${wsId}/formations`)
+      .then(r => {
+        if (!alive) return;
+        setFormations(normArr(extractArray(r, "formations")));
+      })
+      .catch(() => { if (alive) setFormations([]); });
+    return () => { alive = false; };
+  }, [wsId]);
+
+  const colSuggestions = useMemo(() => {
+    const map = {};
+    columns.forEach(col => {
+      const values = new Set();
+      candidats.forEach(c => {
+        const value = c[col.key] ?? c.extraData?.[col.label] ?? c.extraData?.[col.key] ?? "";
+        if (String(value).trim()) values.add(String(value).trim());
+      });
+      if (col.key === "theme") {
+        formations.forEach(f => {
+          const value = f.intitule || f.theme || f.name || f.nom || "";
+          if (String(value).trim()) values.add(String(value).trim());
+        });
+        tasks.forEach(t => {
+          const value = t.group || t.theme || t.name || "";
+          if (String(value).trim()) values.add(String(value).replace(/\s+—\s+Grp\s+\S+$/i, "").trim());
+        });
+      }
+      map[col.key] = Array.from(values).sort((a, b) => a.localeCompare(b)).slice(0, 80);
+    });
+    return map;
+  }, [candidats, formations, tasks, columns]);
+
+  const visibleSuggestions = useMemo(() => {
+    if (!activeCell) return [];
+    const value = String(rows[activeCell.rowIndex]?.[activeCell.key] || "").trim().toLowerCase();
+    if (!value) return [];
+    return (colSuggestions[activeCell.key] || [])
+      .filter(s => String(s).toLowerCase().includes(value))
+      .slice(0, 8);
+  }, [activeCell, colSuggestions, rows]);
+
+  useEffect(() => { fillDragRef.current = fillDrag; }, [fillDrag]);
+
+  useEffect(() => {
+    if (!resizing) return;
+    const onMove = e => {
+      if (resizing.type === "width") {
+        setCellW(Math.max(110, Math.min(420, resizing.startW + (e.clientX - resizing.startX))));
+      } else {
+        setCellH(Math.max(28, Math.min(96, resizing.startH + (e.clientY - resizing.startY))));
+      }
+    };
+    const onUp = () => setResizing(null);
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    document.body.style.cursor = resizing.type === "width" ? "col-resize" : "row-resize";
+    document.body.style.userSelect = "none";
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, [resizing]);
+
+  useEffect(() => {
+    if (!fillDrag) return;
+    const onUp = () => {
+      const drag = fillDragRef.current;
+      if (drag && drag.targetIndex === drag.startIndex) duplicateCellDown(drag.startIndex, drag.key);
+      setFillDrag(null);
+    };
+    document.addEventListener("mouseup", onUp);
+    document.body.style.cursor = "crosshair";
+    document.body.style.userSelect = "none";
+    return () => {
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, [fillDrag]);
+
+  const activateCell = (e, rowIndex, key) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setActiveCell({ rowIndex, key });
+    setSuggestRect({ left: rect.left, top: rect.bottom + 2, width: rect.width });
+  };
+
+  const updateCell = (rowId, key, value) => {
+    setError("");
+    setRows(prev => prev.map(r => r._id === rowId ? { ...r, [key]: value } : r));
+  };
+
+  const fillRange = (drag, targetIndex) => {
+    if (!drag || drag.key == null || targetIndex === drag.startIndex) return;
+    const min = Math.min(drag.startIndex, targetIndex);
+    const max = Math.max(drag.startIndex, targetIndex);
+    setRows(prev => prev.map((r, i) => (i >= min && i <= max && i !== drag.startIndex) ? { ...r, [drag.key]: drag.value } : r));
+  };
+
+  const startFillDrag = (e, rowIndex, key) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const value = rows[rowIndex]?.[key] || "";
+    if (!String(value).trim()) return;
+    const next = { startIndex: rowIndex, targetIndex: rowIndex, key, value };
+    fillDragRef.current = next;
+    setFillDrag(next);
+  };
+
+  const continueFillDrag = (rowIndex, key) => {
+    const drag = fillDragRef.current;
+    if (!drag || drag.key !== key) return;
+    const next = { ...drag, targetIndex: rowIndex };
+    fillDragRef.current = next;
+    setFillDrag(next);
+    fillRange(next, rowIndex);
+  };
+
+  const duplicateCellDown = (rowIndex, key) => {
+    const value = rows[rowIndex]?.[key] || "";
+    if (!String(value).trim()) return;
+    if (rowIndex === rows.length - 1) setRows(prev => [...prev, ...makeRows(1)]);
+    setRows(prev => prev.map((r, i) => i === rowIndex + 1 ? { ...r, [key]: value } : r));
+    setActiveCell({ rowIndex: rowIndex + 1, key });
+  };
+
+  const addColumn = () => {
+    const label = newColumn.trim();
+    if (!label) return;
+    const keyBase = label
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || `col_${columns.length + 1}`;
+    let key = keyBase;
+    let i = 2;
+    while (columns.some(c => c.key === key)) key = `${keyBase}_${i++}`;
+    setColumns(prev => [...prev, { key, label }]);
+    setNewColumn("");
+  };
+
+  const removeColumn = key => {
+    if (requiredKeys.has(key)) return;
+    setColumns(prev => prev.filter(c => c.key !== key));
+    setRows(prev => prev.map(r => {
+      const next = { ...r };
+      delete next[key];
+      return next;
+    }));
+  };
+
+  const filledRows = rows.filter(r => columns.some(c => String(r[c.key] || "").trim()));
+
+  const buildCandidates = () => {
+    const invalid = filledRows.findIndex(r => MANUAL_REQUIRED_COLS.some(c => !String(r[c.key] || "").trim()));
+    if (invalid >= 0) {
+      setError(`Ligne ${invalid + 1}: Nom, Prénom et Thème / Formation sont obligatoires.`);
+      return null;
+    }
+    return filledRows.map(r => {
+      const extraData = {};
+      const cand = { statut: "Reçu" };
+      columns.forEach(col => {
+        const value = String(r[col.key] || "").trim();
+        if (!value) return;
+        if (MANUAL_BASE_KEYS.has(col.key)) cand[col.key] = value;
+        else extraData[col.label] = value;
+      });
+      cand.groupe = Number(cand.groupe) || 1;
+      cand.jours = Number(String(cand.jours || "0").replace(",", ".")) || 0;
+      cand.extraData = extraData;
+      return cand;
+    });
+  };
+
+  const handleSave = () => {
+    if (filledRows.length === 0) {
+      setError("Ajoutez au moins une ligne avant d'enregistrer.");
+      return;
+    }
+    const payload = buildCandidates();
+    if (payload) onSave(payload);
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:600, background:"rgba(0,0,0,0.35)", display:"flex", alignItems:"center", justifyContent:"center", padding:18 }} onMouseDown={e=>{ if(e.target===e.currentTarget) onClose(); }}>
+      <div style={{ width:"min(1180px,96vw)", maxHeight:"90vh", background:"#fff", borderRadius:8, border:`1px solid ${T.pageBdr}`, boxShadow:"0 18px 55px rgba(0,0,0,0.2)", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+        <div style={{ padding:"16px 18px", borderBottom:`1px solid ${T.pageBdr}`, display:"flex", alignItems:"center", gap:12 }}>
+          <Table2 style={{ width:18, height:18, color:T.pageSub }} />
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:16, fontWeight:700, color:T.pageText }}>Saisie manuelle type Excel</div>
+            <div style={{ fontSize:12, color:T.pageSub, marginTop:2 }}>Ajoutez vos colonnes librement. Les colonnes marquées * restent obligatoires.</div>
+          </div>
+          <button onClick={onClose} style={{ width:28, height:28, display:"flex", alignItems:"center", justifyContent:"center", border:"none", background:"transparent", color:T.pageSub, cursor:"pointer", borderRadius:4 }}><X style={{ width:15, height:15 }}/></button>
+        </div>
+
+        <div style={{ padding:"12px 18px", borderBottom:`1px solid ${T.pageBdr}`, display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", background:"rgba(55,53,47,0.015)" }}>
+          <input value={newColumn} onChange={e=>setNewColumn(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter") addColumn(); }} placeholder="Nom de nouvelle colonne" style={{ height:28, minWidth:220, padding:"0 10px", borderRadius:4, border:`1px solid ${T.pageBdr}`, outline:"none", fontSize:13, fontFamily:"inherit" }} />
+          <button onClick={addColumn} style={{ height:28, display:"flex", alignItems:"center", gap:5, padding:"0 10px", fontSize:12, fontWeight:600, border:`1px solid rgba(55,53,47,0.25)`, borderRadius:4, background:"#fff", color:T.pageText, cursor:"pointer", fontFamily:"inherit" }}><Plus style={{ width:12, height:12 }}/>Ajouter colonne</button>
+          <button onClick={()=>setRows(prev=>[...prev, ...makeRows(10)])} style={{ height:28, display:"flex", alignItems:"center", gap:5, padding:"0 10px", fontSize:12, fontWeight:600, border:`1px solid rgba(55,53,47,0.25)`, borderRadius:4, background:"#fff", color:T.pageText, cursor:"pointer", fontFamily:"inherit" }}><PlusCircle style={{ width:12, height:12 }}/>10 lignes</button>
+          <div style={{ width:1, height:18, background:T.pageBdr, margin:"0 2px" }} />
+          <span style={{ fontSize:12, color:T.pageTer }}>Glissez les bordures d'en-tête pour redimensionner</span>
+          <span style={{ marginLeft:"auto", fontSize:12, color:T.pageSub }}>{filledRows.length} ligne{filledRows.length>1?"s":""} remplie{filledRows.length>1?"s":""}</span>
+        </div>
+
+        {error && (
+          <div style={{ margin:"12px 18px 0", padding:"8px 10px", display:"flex", alignItems:"center", gap:8, borderRadius:4, border:"1px solid rgba(212,76,71,0.25)", background:"rgba(212,76,71,0.06)", color:"#d44c47", fontSize:12 }}>
+            <AlertCircle style={{ width:13, height:13, flexShrink:0 }}/>{error}
+          </div>
+        )}
+
+        <div style={{ margin:18, border:`1px solid ${T.pageBdr}`, borderRadius:5, overflow:"auto", flex:1 }}>
+          <table style={{ borderCollapse:"collapse", width:"max-content", minWidth:"100%", fontSize:13 }}>
+            <thead>
+              <tr>
+                <th style={{ position:"sticky", left:0, top:0, zIndex:3, width:42, minWidth:42, height:cellH, background:"#f7f7f7", borderBottom:`1px solid ${T.pageBdr}`, borderRight:`1px solid ${T.pageBdr}`, color:T.pageTer, fontSize:11, fontWeight:600 }}>
+                  <div onMouseDown={e=>setResizing({ type:"height", startY:e.clientY, startH:cellH })} style={{ position:"absolute", left:0, right:0, bottom:-3, height:6, cursor:"row-resize", zIndex:5 }} />
+                </th>
+                {columns.map(col => (
+                  <th key={col.key} style={{ position:"sticky", top:0, zIndex:2, minWidth:cellW, width:cellW, height:cellH, background:"#f7f7f7", borderBottom:`1px solid ${T.pageBdr}`, borderRight:`1px solid ${T.pageBdr}`, padding:"7px 8px", textAlign:"left", color:T.pageText, fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.04em" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                      <span style={{ flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{col.label}{requiredKeys.has(col.key) ? " *" : ""}</span>
+                      {!requiredKeys.has(col.key) && <button onClick={()=>removeColumn(col.key)} style={{ border:"none", background:"transparent", color:T.pageTer, cursor:"pointer", padding:0, display:"flex" }}><X style={{ width:11, height:11 }}/></button>}
+                    </div>
+                    <div onMouseDown={e=>setResizing({ type:"width", startX:e.clientX, startW:cellW })} style={{ position:"absolute", top:0, right:-3, width:6, height:"100%", cursor:"col-resize", zIndex:5 }} />
+                    <div onMouseDown={e=>setResizing({ type:"height", startY:e.clientY, startH:cellH })} style={{ position:"absolute", left:0, right:0, bottom:-3, height:6, cursor:"row-resize", zIndex:5 }} />
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, idx) => (
+                <tr key={row._id}>
+                  <td style={{ position:"sticky", left:0, zIndex:1, background:"#fafafa", width:42, minWidth:42, height:cellH, textAlign:"center", color:T.pageTer, borderRight:`1px solid ${T.pageBdr}`, borderBottom:`1px solid ${T.pageBdr}`, fontSize:11 }}>{idx + 1}</td>
+                  {columns.map(col => (
+                    <td key={col.key} onMouseEnter={()=>continueFillDrag(idx, col.key)} style={{ minWidth:cellW, width:cellW, height:cellH, borderRight:`1px solid ${T.pageBdr}`, borderBottom:`1px solid ${T.pageBdr}`, padding:0, background:fillDrag?.key===col.key&&idx!==fillDrag.startIndex&&idx>=Math.min(fillDrag.startIndex,fillDrag.targetIndex)&&idx<=Math.max(fillDrag.startIndex,fillDrag.targetIndex)?"rgba(15,125,219,0.08)":"#fff", position:"relative" }}>
+                      <input
+                        value={row[col.key] || ""}
+                        onFocus={e=>activateCell(e, idx, col.key)}
+                        onChange={e=>{ activateCell(e, idx, col.key); updateCell(row._id, col.key, e.target.value); }}
+                        onKeyDown={e=>{ if(e.key==="Enter") { setActiveCell({ rowIndex:Math.min(rows.length-1, idx+1), key:col.key }); setSuggestRect(null); } }}
+                        style={{ width:"100%", height:cellH, boxSizing:"border-box", border:"none", outline:"none", padding:"0 8px", fontSize:13, fontFamily:"inherit", color:T.pageText, background:"transparent" }}
+                      />
+                      {activeCell?.rowIndex===idx&&activeCell?.key===col.key&&String(row[col.key]||"").trim()&&(
+                        <div
+                          title="Glisser pour dupliquer"
+                          onMouseDown={e=>startFillDrag(e, idx, col.key)}
+                          style={{ position:"absolute", right:-4, bottom:-4, zIndex:7, width:8, height:8, border:`1px solid #fff`, background:T.accent, cursor:"crosshair", boxShadow:"0 0 0 1px rgba(15,125,219,0.75)" }}
+                        />
+                      )}
+                      {activeCell?.rowIndex===idx&&activeCell?.key===col.key&&(
+                        <div style={{ position:"absolute", inset:0, pointerEvents:"none", border:`1.5px solid ${T.accent}`, zIndex:4 }} />
+                      )}
+                      {fillDrag?.key===col.key&&idx===fillDrag.targetIndex&&idx!==fillDrag.startIndex&&(
+                        <div style={{ position:"absolute", inset:0, pointerEvents:"none", border:`1.5px dashed ${T.accent}`, zIndex:5 }} />
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {activeCell&&suggestRect&&visibleSuggestions.length>0&&(
+          <div style={{ position:"fixed", left:suggestRect.left, top:suggestRect.top, zIndex:900, width:Math.max(180, Math.min(340, suggestRect.width)), background:"#fff", border:`1px solid ${T.pageBdr}`, borderRadius:6, boxShadow:"0 12px 30px rgba(0,0,0,0.18)", overflow:"hidden" }}>
+            {visibleSuggestions.map(s=>(
+              <button
+                key={s}
+                type="button"
+                onMouseDown={e=>{
+                  e.preventDefault();
+                  const row = rows[activeCell.rowIndex];
+                  if (!row) return;
+                  updateCell(row._id, activeCell.key, s);
+                  setSuggestRect(null);
+                }}
+                style={{ width:"100%", display:"block", border:"none", background:"#fff", padding:"8px 10px", textAlign:"left", fontSize:12, fontWeight:600, color:T.pageText, cursor:"pointer", fontFamily:"inherit", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}
+                onMouseEnter={e=>e.currentTarget.style.background=T.pageHov}
+                onMouseLeave={e=>e.currentTarget.style.background="#fff"}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div style={{ padding:"12px 18px", borderTop:`1px solid ${T.pageBdr}`, display:"flex", justifyContent:"flex-end", gap:8, background:"rgba(55,53,47,0.02)" }}>
+          <button onClick={onClose} disabled={saving} style={{ padding:"7px 14px", fontSize:13, color:T.pageSub, background:"transparent", border:`1px solid rgba(55,53,47,0.2)`, borderRadius:4, cursor:saving?"not-allowed":"pointer", fontFamily:"inherit" }}>Annuler</button>
+          <button onClick={handleSave} disabled={saving} style={{ padding:"7px 14px", fontSize:13, fontWeight:600, color:"#fff", background:saving?"#8d8a83":"#37352f", border:"none", borderRadius:4, cursor:saving?"not-allowed":"pointer", fontFamily:"inherit" }}>{saving ? "Enregistrement..." : `Enregistrer ${filledRows.length || ""}`}</button>
+        </div>
       </div>
     </div>
   );
@@ -8963,6 +9326,7 @@ function CandidatsView({ currentUser, candidats, setCandidats, tasks, setTasks, 
   const [saving,           setSaving]           = useState(false);
   const [candScrollTop,    setCandScrollTop]    = useState(0);
   const [multiImportOpen,  setMultiImportOpen]  = useState(false);
+  const [manualOpen,       setManualOpen]       = useState(false);
   const colPickerRef = useRef(null);
 
   // ── AJOUT : STYLE POUR LES STATUTS (dont Annulé) ──
@@ -9062,6 +9426,27 @@ function CandidatsView({ currentUser, candidats, setCandidats, tasks, setTasks, 
     setSaving(false); setModal(null);
   };
 
+  const saveManualRows = async rows => {
+    setSaving(true);
+    try {
+      await apiFetch(`/workspaces/${wsId}/candidats/import`, {
+        method: "POST",
+        body: {
+          batchId: `manual_${Date.now()}`,
+          fileName: "Saisie manuelle",
+          candidats: rows,
+        },
+      });
+      const refreshed = await apiFetch(`/workspaces/${wsId}/candidats?limit=5000`);
+      setCandidats(normArr(extractArray(refreshed, "candidats")));
+      showToast(`${rows.length} candidat${rows.length>1?"s":""} ajouté${rows.length>1?"s":""}`, "success");
+      setManualOpen(false);
+    } catch(e) {
+      showToast("Erreur : " + e.message, "error");
+    }
+    setSaving(false);
+  };
+
   const delCand = async id => {
     if(!window.confirm("Supprimer ce candidat ?")) return;
     setCandidats(p=>{const n=p.filter(c=>c.id!==id); return n;});
@@ -9094,6 +9479,7 @@ function CandidatsView({ currentUser, candidats, setCandidats, tasks, setTasks, 
   return (
     <div style={{ padding: pagePadding, width:"100%", boxSizing:"border-box" }}>
       {modal && <CModal item={modal==="new"?null:modal} onClose={()=>setModal(null)} onSave={save} />}
+      {manualOpen && <ManualCandidatsSheet candidats={candidats} tasks={tasks} wsId={wsId} onClose={()=>setManualOpen(false)} onSave={saveManualRows} saving={saving} />}
 
       {/* ── Titre ── */}
       <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
@@ -9209,7 +9595,7 @@ function CandidatsView({ currentUser, candidats, setCandidats, tasks, setTasks, 
 
             {canImport && (
               <button onClick={()=>setMultiImportOpen(true)} style={{ display:"flex", alignItems:"center", gap:5, height:26, padding:"0 10px", fontSize:12, fontWeight:500, color:T.pageText, background:"transparent", border:`1px solid rgba(55,53,47,0.25)`, borderRadius:4, cursor:"pointer", fontFamily:"inherit" }}>
-                <FileStack style={{ width:12, height:12 }}/>{!isMobile&&" Import 3 bases"}
+                <FileStack style={{ width:12, height:12 }}/>{!isMobile&&" Importer"}
               </button>
             )}
 
@@ -9252,8 +9638,8 @@ function CandidatsView({ currentUser, candidats, setCandidats, tasks, setTasks, 
               />
             )}
 
-            <button onClick={()=>setModal("new")} style={{ display:"flex", alignItems:"center", gap:5, height:26, padding:"0 10px", fontSize:12, fontWeight:500, color:"#fff", background:"#37352f", border:"none", borderRadius:4, cursor:"pointer", fontFamily:"inherit" }}>
-              <Plus style={{ width:12, height:12 }}/>{!isMobile&&" Nouveau"}
+            <button onClick={()=>setManualOpen(true)} style={{ display:"flex", alignItems:"center", gap:5, height:26, padding:"0 10px", fontSize:12, fontWeight:500, color:"#fff", background:"#37352f", border:"none", borderRadius:4, cursor:"pointer", fontFamily:"inherit" }}>
+              <Table2 style={{ width:12, height:12 }}/>{!isMobile&&" Saisie manuelle"}
             </button>
           </div>
         </div>
@@ -9300,8 +9686,20 @@ function CandidatsView({ currentUser, candidats, setCandidats, tasks, setTasks, 
           <Users style={{ width:36, height:36, color:T.pageTer, margin:"0 auto 12px", display:"block", strokeWidth:1.4 }}/>
           <div style={{ fontSize:15, fontWeight:600, color:T.pageText }}>Aucun candidat</div>
           <div style={{ fontSize:13, color:T.pageSub, marginTop:4 }}>
-            {activeFilters > 0 || search ? "Aucun résultat pour les filtres actifs" : "Ajoutez manuellement ou importez depuis Excel"}
+            {activeFilters > 0 || search ? "Aucun résultat pour les filtres actifs" : "Importez un fichier ou saisissez les candidats ligne par ligne"}
           </div>
+          {!(activeFilters > 0 || search) && (
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, marginTop:16, flexWrap:"wrap" }}>
+              {canImport && (
+                <button onClick={()=>setMultiImportOpen(true)} style={{ display:"flex", alignItems:"center", gap:6, height:32, padding:"0 12px", fontSize:13, fontWeight:600, color:T.pageText, background:"#fff", border:`1px solid rgba(55,53,47,0.25)`, borderRadius:4, cursor:"pointer", fontFamily:"inherit" }}>
+                  <FileStack style={{ width:14, height:14 }}/>Importer
+                </button>
+              )}
+              <button onClick={()=>setManualOpen(true)} style={{ display:"flex", alignItems:"center", gap:6, height:32, padding:"0 12px", fontSize:13, fontWeight:600, color:"#fff", background:"#37352f", border:"none", borderRadius:4, cursor:"pointer", fontFamily:"inherit" }}>
+                <Table2 style={{ width:14, height:14 }}/>Saisie manuelle
+              </button>
+            </div>
+          )}
         </div>
 
       /* ══════════════════════════════════════════════════════════
@@ -13470,33 +13868,11 @@ function SyntheseCoutsDesigner({ doc, candidats, tasks, onClose }) {
   );
 }
 
-function DModal({ item, onClose, onSave }) {
-  const [f, setF] = useState(item || { nom: "", type: "Contrat", statut: "Reçu", dateDoc: "", lien: "", notes: "" });
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 500, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center" }} onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ background: "#fff", borderRadius: 8, boxShadow: "0 16px 48px rgba(0,0,0,0.18)", width: "min(440px,95vw)", border: `1px solid rgba(55,53,47,0.13)`, overflow: "hidden" }}>
-        <div style={{ padding: "20px 24px 14px", borderBottom: `1px solid ${T.pageBdr}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}><span style={{ fontSize: 16, fontWeight: 700, color: T.pageText, letterSpacing: "-0.02em" }}>{item ? "Modifier" : "Nouveau document"}</span><button onClick={onClose} style={{ width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 4, border: "none", background: "transparent", cursor: "pointer", color: T.pageSub }}><X style={{ width: 14, height: 14 }} /></button></div>
-        <div style={{ padding: "18px 24px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <div style={{ gridColumn: "span 2" }}><div style={{ fontSize: 11, fontWeight: 600, color: T.pageSub, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 5 }}>Nom du document *</div><input autoFocus value={f.nom} onChange={e => setF(p => ({ ...p, nom: e.target.value }))} placeholder="Ex: Contrat de prestation…" style={{ width: "100%", boxSizing: "border-box", padding: "7px 10px", borderRadius: 4, border: `1px solid rgba(55,53,47,0.2)`, fontSize: 13, color: T.pageText, outline: "none", fontFamily: "inherit" }} onFocus={e => { e.target.style.borderColor = T.accent; e.target.style.boxShadow = `0 0 0 2px ${T.accent}22`; }} onBlur={e => { e.target.style.borderColor = "rgba(55,53,47,0.2)"; e.target.style.boxShadow = "none"; }} /></div>
-          <div><div style={{ fontSize: 11, fontWeight: 600, color: T.pageSub, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Type</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>{DOC_TYPES.map(t => <button key={t} onClick={() => setF(p => ({ ...p, type: t }))} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", borderRadius: 3, border: `1px solid ${f.type === t ? "rgba(55,53,47,0.4)" : T.pageBdr}`, background: f.type === t ? "rgba(55,53,47,0.07)" : "transparent", color: f.type === t ? T.pageText : T.pageSub, fontSize: 12, cursor: "pointer", fontFamily: "inherit", fontWeight: f.type === t ? 600 : 400 }}><DocIcon type={t} size={13} />{t}</button>)}</div></div>
-          <div><div style={{ fontSize: 11, fontWeight: 600, color: T.pageSub, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Statut</div><div style={{ display: "flex", flexDirection: "column", gap: 4 }}>{DOC_STATUS.map(s => <button key={s.key} onClick={() => setF(p => ({ ...p, statut: s.key }))} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 8px", borderRadius: 3, border: `1px solid ${f.statut === s.key ? s.text : "rgba(55,53,47,0.15)"}`, background: f.statut === s.key ? s.bg : "transparent", color: f.statut === s.key ? s.text : T.pageSub, fontSize: 12, cursor: "pointer", fontFamily: "inherit", fontWeight: f.statut === s.key ? 600 : 400, textAlign: "left" }}><div style={{ width: 6, height: 6, borderRadius: "50%", background: s.text, flexShrink: 0 }} />{s.key}</button>)}</div></div>
-          <div><div style={{ fontSize: 11, fontWeight: 600, color: T.pageSub, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 5 }}>Date</div><input type="date" value={f.dateDoc || ""} onChange={e => setF(p => ({ ...p, dateDoc: e.target.value }))} style={{ width: "100%", boxSizing: "border-box", padding: "7px 10px", borderRadius: 4, border: `1px solid rgba(55,53,47,0.2)`, fontSize: 13, color: T.pageText, outline: "none", fontFamily: "inherit" }} /></div>
-          <div><div style={{ fontSize: 11, fontWeight: 600, color: T.pageSub, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 5 }}>Lien / URL</div><input type="url" value={f.lien || ""} onChange={e => setF(p => ({ ...p, lien: e.target.value }))} placeholder="https://…" style={{ width: "100%", boxSizing: "border-box", padding: "7px 10px", borderRadius: 4, border: `1px solid rgba(55,53,47,0.2)`, fontSize: 13, color: T.pageText, outline: "none", fontFamily: "inherit" }} /></div>
-          <div style={{ gridColumn: "span 2" }}><div style={{ fontSize: 11, fontWeight: 600, color: T.pageSub, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 5 }}>Notes</div><textarea value={f.notes || ""} onChange={e => setF(p => ({ ...p, notes: e.target.value }))} rows={3} style={{ width: "100%", boxSizing: "border-box", padding: "7px 10px", borderRadius: 4, border: `1px solid rgba(55,53,47,0.2)`, fontSize: 13, color: T.pageText, outline: "none", fontFamily: "inherit", resize: "vertical" }} /></div>
-        </div>
-        <div style={{ padding: "12px 24px", borderTop: `1px solid ${T.pageBdr}`, display: "flex", justifyContent: "flex-end", gap: 8, background: "rgba(55,53,47,0.02)" }}><button onClick={onClose} style={{ padding: "6px 14px", fontSize: 13, color: T.pageSub, background: "transparent", border: `1px solid rgba(55,53,47,0.2)`, borderRadius: 4, cursor: "pointer", fontFamily: "inherit" }}>Annuler</button><button onClick={() => { if (!f.nom.trim()) return; onSave(f); onClose(); }} style={{ padding: "6px 14px", fontSize: 13, fontWeight: 600, color: "#fff", background: "#37352f", border: "none", borderRadius: 4, cursor: "pointer", fontFamily: "inherit" }} onMouseEnter={e => e.currentTarget.style.background = "#111"} onMouseLeave={e => e.currentTarget.style.background = "#37352f"}>{item ? "Enregistrer" : "Ajouter"}</button></div>
-      </div>
-    </div>
-  );
-}
-
-
-function DocsView({currentUser, documents, setDocuments, wsId, showToast, candidats, tasks, ws }) {
+function DocsView({currentUser, documents, setDocuments, wsId, showToast, candidats, tasks, ws, onImportCandidats, onManualCandidats, canImportCandidats = true }) {
   const [syntheseCoutsItem, setSyntheseCoutsItem] = useState(null);
   const [recapItem, setRecapItem] = useState(null);
   const [ficheTechItem, setFicheTechItem] = useState(null);
   const [previewItem, setPreviewItem] = useState(null);
-  const [modal, setModal] = useState(null);
   const [filter, setFilter] = useState("Tous");
   const [search, setSearch] = useState("");
   const [view, setView] = useState("table");
@@ -13523,18 +13899,6 @@ function DocsView({currentUser, documents, setDocuments, wsId, showToast, candid
       (!search || d.nom.toLowerCase().includes(search.toLowerCase()))
     );
   }, [documents, currentUser, filter, search]);
-
-  const save = async f => {
-    try {
-      if (modal === "new") {
-        const created = norm(await apiFetch(`/workspaces/${wsId}/documents`, { method: "POST", body: f }));
-        setDocuments(p => [...p, created]);
-      } else {
-        const updated = norm(await apiFetch(`/documents/${modal.id}`, { method: "PUT", body: f }));
-        setDocuments(p => p.map(d => d.id === modal.id ? updated : d));
-      }
-    } catch (e) { showToast("Erreur : " + e.message); }
-  };
 
   const delDoc = async id => {
     setDocuments(p => p.filter(d => d.id !== id));
@@ -13564,7 +13928,6 @@ function DocsView({currentUser, documents, setDocuments, wsId, showToast, candid
     <div style={{ padding: isMobile ? "16px 12px 60px" : isTablet ? "20px 20px 60px" : "30px 40px 80px", width: "100%", boxSizing: "border-box" }}>
 
       {/* ── Modals ── */}
-      {modal && <DModal item={modal === "new" ? null : modal} onClose={() => setModal(null)} onSave={save} />}
       {previewItem && <AttendanceDesigner doc={previewItem} candidats={candidats} tasks={tasks} ws={ws} onClose={() => setPreviewItem(null)} />}
       {ficheTechItem && <FicheTechniqueDesigner doc={ficheTechItem} candidats={candidats} tasks={tasks} onClose={() => setFicheTechItem(null)} />}
       {recapItem && <RecapitulatifDesigner doc={recapItem} candidats={candidats} tasks={tasks} onClose={() => setRecapItem(null)} />}
@@ -13645,16 +14008,24 @@ function DocsView({currentUser, documents, setDocuments, wsId, showToast, candid
           )}
         </div>
 
-        <button onClick={() => setModal("new")} style={{
+        {canImportCandidats && (
+          <button onClick={onImportCandidats} style={{
+            display: "flex", alignItems: "center", gap: 5, height: 26, padding: "0 10px",
+            fontSize: 13, fontWeight: 500, color: T.pageText, background: "transparent",
+            border: `1px solid rgba(55,53,47,0.25)`, borderRadius: 4, cursor: "pointer", fontFamily: "inherit",
+          }}>
+            <FileStack style={{ width: 13, height: 13 }} />
+            {!isMobile && " Importer"}
+          </button>
+        )}
+
+        <button onClick={onManualCandidats} style={{
           display: "flex", alignItems: "center", gap: 5, height: 26, padding: "0 10px",
-          fontSize: 13, fontWeight: 500, color: "#fff", background: "#37352f",
-          border: "none", borderRadius: 4, cursor: "pointer", fontFamily: "inherit",
-        }}
-          onMouseEnter={e => e.currentTarget.style.background = "#111"}
-          onMouseLeave={e => e.currentTarget.style.background = "#37352f"}
-        >
-          <Plus style={{ width: 13, height: 13 }} />
-          {!isMobile && " Nouveau"}
+          fontSize: 13, fontWeight: 500, color: T.pageText, background: "transparent",
+          border: `1px solid rgba(55,53,47,0.25)`, borderRadius: 4, cursor: "pointer", fontFamily: "inherit",
+        }}>
+          <Table2 style={{ width: 13, height: 13 }} />
+          {!isMobile && " Saisie manuelle"}
         </button>
       </div>
 
@@ -13663,6 +14034,17 @@ function DocsView({currentUser, documents, setDocuments, wsId, showToast, candid
         <div style={{ textAlign: "center", padding: "80px 0" }}>
           <FolderOpen style={{ width: 36, height: 36, color: T.pageTer, margin: "0 auto 12px", display: "block", strokeWidth: 1.4 }} />
           <div style={{ fontSize: 15, fontWeight: 600, color: T.pageText }}>Aucun document</div>
+          <div style={{ fontSize: 13, color: T.pageSub, marginTop: 4 }}>Importez ou saisissez les candidats pour générer vos documents ensuite.</div>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, marginTop:16, flexWrap:"wrap" }}>
+            {canImportCandidats && (
+              <button onClick={onImportCandidats} style={{ display:"flex", alignItems:"center", gap:6, height:32, padding:"0 12px", fontSize:13, fontWeight:600, color:T.pageText, background:"#fff", border:`1px solid rgba(55,53,47,0.25)`, borderRadius:4, cursor:"pointer", fontFamily:"inherit" }}>
+                <FileStack style={{ width:14, height:14 }}/>Importer
+              </button>
+            )}
+            <button onClick={onManualCandidats} style={{ display:"flex", alignItems:"center", gap:6, height:32, padding:"0 12px", fontSize:13, fontWeight:600, color:"#fff", background:"#37352f", border:"none", borderRadius:4, cursor:"pointer", fontFamily:"inherit" }}>
+              <Table2 style={{ width:14, height:14 }}/>Saisie manuelle
+            </button>
+          </div>
         </div>
 
       ) : (view === "grid" || isMobile) ? (
@@ -13711,12 +14093,6 @@ function DocsView({currentUser, documents, setDocuments, wsId, showToast, candid
                         <Link style={{ width: 10, height: 10 }} />
                       </a>
                     )}
-                    <button onClick={() => setModal(doc)} style={{ width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 3, border: "none", background: "transparent", cursor: "pointer", color: T.pageTer }}
-                      onMouseEnter={e => e.currentTarget.style.background = T.pageHov}
-                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                    >
-                      <Edit2 style={{ width: 10, height: 10 }} />
-                    </button>
                     <button onClick={() => delDoc(doc.id)} style={{ width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 3, border: "none", background: "transparent", cursor: "pointer", color: T.pageTer }}
                       onMouseEnter={e => { e.currentTarget.style.background = "rgba(212,76,71,0.08)"; e.currentTarget.style.color = "#d44c47"; }}
                       onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = T.pageTer; }}
@@ -13811,12 +14187,6 @@ function DocsView({currentUser, documents, setDocuments, wsId, showToast, candid
                       <Link style={{ width: 10, height: 10 }} />
                     </a>
                   )}
-                  <button onClick={() => setModal(doc)} style={{ width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 3, border: "none", background: "transparent", cursor: "pointer", color: T.pageTer }}
-                    onMouseEnter={e => e.currentTarget.style.background = T.pageHov}
-                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                  >
-                    <Edit2 style={{ width: 11, height: 11 }} />
-                  </button>
                   <button onClick={() => delDoc(doc.id)} style={{ width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 3, border: "none", background: "transparent", cursor: "pointer", color: T.pageTer }}
                     onMouseEnter={e => { e.currentTarget.style.background = "rgba(212,76,71,0.08)"; e.currentTarget.style.color = "#d44c47"; }}
                     onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = T.pageTer; }}
@@ -14419,6 +14789,9 @@ export default function App() {
   const { show: showToast, ToastContainer } = useToast();
   const { currentUser, updateProfile, logout } = useAuth();
   const [globalYear, setGlobalYear] = useState(new Date().getFullYear());
+  const [globalMultiImportOpen, setGlobalMultiImportOpen] = useState(false);
+  const [globalManualOpen, setGlobalManualOpen] = useState(false);
+  const [globalManualSaving, setGlobalManualSaving] = useState(false);
 
 
   // ── Fermer la sidebar automatiquement quand on passe en mobile ──
@@ -14536,6 +14909,40 @@ export default function App() {
   const setT = mk(setAllT, activeWs);
   const setC = mk(setAllC, activeWs);
   const setD = mk(setAllD, activeWs);
+  const canImportCandidats = !currentUser?.parentId || currentUser?.permissions?.canImportExcel;
+
+  const refreshActiveWorkspaceData = async () => {
+    if (!activeWs) return;
+    const [resTasks, resCands, resDocs] = await Promise.all([
+      apiFetch(`/workspaces/${activeWs}/tasks`),
+      apiFetch(`/workspaces/${activeWs}/candidats?limit=5000`),
+      apiFetch(`/workspaces/${activeWs}/documents`),
+    ]);
+    setT(normArr(extractArray(resTasks, "tasks")));
+    setC(normArr(extractArray(resCands, "candidats")));
+    setD(normArr(extractArray(resDocs, "documents")));
+  };
+
+  const saveGlobalManualRows = async rows => {
+    if (!activeWs) return;
+    setGlobalManualSaving(true);
+    try {
+      await apiFetch(`/workspaces/${activeWs}/candidats/import`, {
+        method: "POST",
+        body: {
+          batchId: `manual_${Date.now()}`,
+          fileName: "Saisie manuelle",
+          candidats: rows,
+        },
+      });
+      await refreshActiveWorkspaceData();
+      showToast(`${rows.length} candidat${rows.length>1?"s":""} ajouté${rows.length>1?"s":""}`, "success");
+      setGlobalManualOpen(false);
+    } catch(e) {
+      showToast("Erreur : " + e.message, "error");
+    }
+    setGlobalManualSaving(false);
+  };
 
   const createWs = async data => {
     try {
@@ -14615,6 +15022,48 @@ const updateWs = (updatedRaw) => {
       `}</style>
 
       <ToastContainer />
+
+      {globalManualOpen && (
+        <ManualCandidatsSheet
+          candidats={cands}
+          tasks={tasks}
+          wsId={activeWs}
+          onClose={() => setGlobalManualOpen(false)}
+          onSave={saveGlobalManualRows}
+          saving={globalManualSaving}
+        />
+      )}
+
+      {globalMultiImportOpen && (
+        <MultiBaseImportWizard
+          onClose={() => setGlobalMultiImportOpen(false)}
+          onDone={async () => {
+            setGlobalMultiImportOpen(false);
+            setT([]);
+            setC([]);
+            setD([]);
+            showToast("Importation réussie, synchronisation...", "success");
+            setTimeout(async () => {
+              try {
+                await refreshActiveWorkspaceData();
+                showToast("Données mises à jour", "success");
+              } catch (e) {
+                console.error("Erreur sync après import:", e);
+                showToast("Erreur de rafraîchissement", "error");
+              }
+            }, 1500);
+          }}
+          setTasks={setT}
+          wsStart={ws?.startDate || null}
+          wsEnd={ws?.endDate || null}
+          wsId={activeWs}
+          showToast={showToast}
+          wsWorkingDays={ws?.workingDays}
+          wsSkipHolidays={ws?.skipHolidays}
+          wsVacances={ws?.vacances}
+          onUpdateWs={updateWs}
+        />
+      )}
 
       {/* ── Modal création workspace ── */}
       {showCreate && (
@@ -14744,6 +15193,9 @@ const updateWs = (updatedRaw) => {
               onSelectWs={(id) => { setActiveWs(id); setSection("overview"); }} 
               globalYear={globalYear}
               onYearChange={setGlobalYear}
+              onImportCandidats={() => setGlobalMultiImportOpen(true)}
+              onManualCandidats={() => setGlobalManualOpen(true)}
+              canImportCandidats={canImportCandidats}
             />
           </div>
           <div style={{ display: section === "gantt" ? "block" : "none" }}>
@@ -14760,6 +15212,9 @@ const updateWs = (updatedRaw) => {
               showToast={showToast}
               candidats={cands}
               ws={ws}
+              onImportCandidats={() => setGlobalMultiImportOpen(true)}
+              onManualCandidats={() => setGlobalManualOpen(true)}
+              canImportCandidats={canImportCandidats}
             />
           </div>
           <div style={{ display: section === "candidats" ? "block" : "none", flex: 1, overflowY: "auto", position: "relative" }}>
@@ -14786,6 +15241,9 @@ const updateWs = (updatedRaw) => {
               wsId={activeWs}
               showToast={showToast}
               ws={ws}
+              onImportCandidats={() => setGlobalMultiImportOpen(true)}
+              onManualCandidats={() => setGlobalManualOpen(true)}
+              canImportCandidats={canImportCandidats}
             />
           </div>
           <div style={{ display: section === "profile" ? "block" : "none", flex: 1, overflowY: "auto", position: "relative" }}>
