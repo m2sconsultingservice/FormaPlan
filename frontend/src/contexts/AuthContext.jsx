@@ -6,7 +6,7 @@ const getApiBase = () => {
   if (typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname)) {
     return "http://localhost:5000/api";
   }
-  return "https://formatplan-production-4aa2.up.railway.app/api";
+  return "https://formaplan-production.up.railway.app/api";
 };
 
 const AUTH_BASE = `${getApiBase()}/auth`;

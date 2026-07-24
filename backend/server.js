@@ -19,21 +19,28 @@ const cron = require("node-cron");
 // 1. INITIALISATION DE L'APP (Indispensable au tout début)
 const app = express();
 
-// Configuration CORS - Ajout de ton URL Vercel correcte
+// Configuration CORS
 app.use(cors({
-  origin: [
-    'tauri://localhost',
-    'http://tauri.localhost',
-    'http://localhost:5173', 
-    'http://localhost:5174', 
-    'http://localhost:5175', 
-    'https://gantt-pied.vercel.app', 
-    'https://m2s-formaplan.vercel.app',
-    'https://format-plan.vercel.app',
-    "https://formatplan-production-4aa2.up.railway.app",
-    
-
-  ],
+  origin: function(origin, callback) {
+    const allowed = [
+      'tauri://localhost',
+      'http://tauri.localhost',
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://localhost:5175',
+      'https://gantt-pied.vercel.app',
+      'https://m2s-formaplan.vercel.app',
+      'https://format-plan.vercel.app',
+      'https://formaplan-production.up.railway.app',
+      'https://formatplan-production-4aa2.up.railway.app',
+    ];
+    // Allow all *.railway.app subdomains + requests without origin (Postman, server-to-server)
+    if (!origin || allowed.includes(origin) || /\.railway\.app$/.test(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
