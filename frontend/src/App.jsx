@@ -37,11 +37,19 @@ function AppContent() {
 export default function App() {
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
   
-  return (
-    <GoogleOAuthProvider clientId={clientId}>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
-    </GoogleOAuthProvider>
+  const content = (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
+
+  if (clientId) {
+    return (
+      <GoogleOAuthProvider clientId={clientId}>
+        {content}
+      </GoogleOAuthProvider>
+    );
+  }
+
+  return content;
 }
