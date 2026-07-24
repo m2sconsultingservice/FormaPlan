@@ -9,6 +9,9 @@ const getApiBase = () => {
   if (!url && typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname)) {
     url = "http://localhost:5000/api";
   }
+  if (!url && typeof window !== "undefined") {
+    url = `${window.location.origin}/api`;
+  }
   if (!url) url = "https://formatplan-production-4aa2.up.railway.app/api";
   
   // Tauri mobile app sur Android - `localhost` sur le téléphone pointe vers lui-même.
