@@ -2533,7 +2533,7 @@ const saveEdit = async () => {
               </button>
             )}
             <button onClick={onManualCandidats}
-              style={{ display:"flex", alignItems:"center", gap:5, padding:"5px 11px", fontSize:12, fontWeight:500, color:T.pageText, background:"#fff", border:`1px solid ${T.pageBdr}`, borderRadius:6, cursor:"pointer", fontFamily:"inherit" }}
+              style={{ display:"none", alignItems:"center", gap:5, padding:"5px 11px", fontSize:12, fontWeight:500, color:T.pageText, background:"#fff", border:`1px solid ${T.pageBdr}`, borderRadius:6, cursor:"pointer", fontFamily:"inherit" }}
               onMouseEnter={e => e.currentTarget.style.background = "#f7f7f5"}
               onMouseLeave={e => e.currentTarget.style.background = "#fff"}>
               <Table2 style={{ width:11, height:11 }} />
@@ -6153,7 +6153,7 @@ const confirmUpdate = useCallback(async () => {
               <FileStack style={{width:13,height:13}}/> Importer
             </button>
           )}
-          <button onClick={onManualCandidats} style={{display:"flex",alignItems:"center",gap:5,height:26,padding:"0 10px",fontSize:13,fontWeight:500,color:T.pageText,background:"transparent",border:`1px solid rgba(55,53,47,0.25)`,borderRadius:4,cursor:"pointer",fontFamily:"inherit"}}>
+          <button onClick={onManualCandidats} style={{display:"none",alignItems:"center",gap:5,height:26,padding:"0 10px",fontSize:13,fontWeight:500,color:T.pageText,background:"transparent",border:`1px solid rgba(55,53,47,0.25)`,borderRadius:4,cursor:"pointer",fontFamily:"inherit"}}>
             <Table2 style={{width:13,height:13}}/> Saisie manuelle
           </button>
           <button onClick={exportGantt} disabled={displayTasks.length===0} style={{display:"flex",alignItems:"center",gap:5,height:26,padding:"0 10px",fontSize:13,fontWeight:500,color:T.pageText,background:"transparent",border:`1px solid rgba(55,53,47,0.25)`,borderRadius:4,cursor:displayTasks.length===0?"not-allowed":"pointer",fontFamily:"inherit",opacity:displayTasks.length===0?0.4:1}}>
@@ -6419,7 +6419,7 @@ const confirmUpdate = useCallback(async () => {
                 <FileStack style={{width:14,height:14}}/>Importer
               </button>
             )}
-            <button onClick={onManualCandidats} style={{display:"flex",alignItems:"center",gap:6,height:32,padding:"0 12px",fontSize:13,fontWeight:600,color:"#fff",background:"#37352f",border:"none",borderRadius:4,cursor:"pointer",fontFamily:"inherit"}}>
+            <button onClick={onManualCandidats} style={{display:"none",alignItems:"center",gap:6,height:32,padding:"0 12px",fontSize:13,fontWeight:600,color:"#fff",background:"#37352f",border:"none",borderRadius:4,cursor:"pointer",fontFamily:"inherit"}}>
               <Table2 style={{width:14,height:14}}/>Saisie manuelle
             </button>
           </div>
@@ -6738,20 +6738,86 @@ const MANUAL_BASE_KEYS = new Set([
   "departement", "heures", "statut", "dateDebut", "dateFin", "lieu", "cabinet",
   "cout", "formateur", "contact", "domaine", "objectif", "contenu", "niveau", "publicCible",
 ]);
+const MANUAL_SUGGESTION_ALIASES = {
+  nom: ["nom", "lastName", "lastname"],
+  prenom: ["prenom", "prénom", "firstName", "firstname"],
+  theme: ["theme", "thème", "formation", "intitule", "intitulé", "intituleFormation", "intitule_de_formation", "titre"],
+  matricule: ["matricule", "__matricule__"],
+  poste: ["poste", "fonction", "poste / fonction"],
+  groupe: ["groupe", "grp"],
+  jours: ["jours", "duree", "durée"],
+};
 
-function ManualCandidatsSheet({ candidats, tasks = [], wsId, onClose, onSave, saving }) {
+const manualNormKey = value => String(value || "")
+  .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+  .toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+
+const manualColumnAliases = col => {
+  const key = manualNormKey(col.key);
+  const label = manualNormKey(col.label);
+  const aliases = new Set([col.key, col.label, key, label]);
+  Object.entries(MANUAL_SUGGESTION_ALIASES).forEach(([base, vals]) => {
+    const normVals = vals.map(manualNormKey);
+    if (base === key || base === label || normVals.includes(key) || normVals.includes(label) || normVals.some(v => label.includes(v))) {
+      aliases.add(base);
+      vals.forEach(v => aliases.add(v));
+    }
+  });
+  if (label.includes("formation") || label.includes("intitule") || label.includes("theme")) {
+    MANUAL_SUGGESTION_ALIASES.theme.forEach(v => aliases.add(v));
+    aliases.add("theme");
+  }
+  return Array.from(aliases);
+};
+
+const manualValueFrom = (obj, col) => {
+  if (!obj) return "";
+  const aliases = manualColumnAliases(col);
+  for (const key of aliases) {
+    if (obj[key] !== undefined && obj[key] !== null && String(obj[key]).trim()) return obj[key];
+  }
+  const normAliases = aliases.map(manualNormKey);
+  for (const [key, value] of Object.entries(obj)) {
+    if (normAliases.includes(manualNormKey(key)) && value !== undefined && value !== null && String(value).trim()) return value;
+  }
+  const extra = obj.extraData || {};
+  for (const key of aliases) {
+    if (extra[key] !== undefined && extra[key] !== null && String(extra[key]).trim()) return extra[key];
+  }
+  for (const [key, value] of Object.entries(extra)) {
+    if (normAliases.includes(manualNormKey(key)) && value !== undefined && value !== null && String(value).trim()) return value;
+  }
+  return "";
+};
+
+const manualIsThemeColumn = col => {
+  const text = `${col.key || ""} ${col.label || ""}`;
+  const norm = manualNormKey(text);
+  return norm.includes("theme") || norm.includes("formation") || norm.includes("intitule");
+};
+
+const manualId = value => {
+  if (!value) return "";
+  if (typeof value === "object") return String(value._id || value.id || "");
+  return String(value);
+};
+
+function ManualCandidatsSheet({ candidats, tasks = [], wsId, scopeOwnerId = null, onClose, onSave, saving }) {
   const makeRows = count => Array.from({ length: count }, () => ({ _id: `${Date.now()}_${Math.random().toString(36).slice(2)}` }));
   const [columns, setColumns] = useState(MANUAL_DEFAULT_COLS);
   const [rows, setRows] = useState(makeRows(10));
   const [newColumn, setNewColumn] = useState("");
   const [error, setError] = useState("");
   const [formations, setFormations] = useState([]);
+  const [dbCandidats, setDbCandidats] = useState([]);
+  const [exportRows, setExportRows] = useState([]);
   const [activeCell, setActiveCell] = useState(null);
   const [suggestRect, setSuggestRect] = useState(null);
-  const [cellW, setCellW] = useState(165);
-  const [cellH, setCellH] = useState(32);
+  const [columnWidths, setColumnWidths] = useState({});
+  const [rowHeights, setRowHeights] = useState({});
   const [resizing, setResizing] = useState(null);
   const [fillDrag, setFillDrag] = useState(null);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const fillDragRef = useRef(null);
 
   const requiredKeys = new Set(MANUAL_REQUIRED_COLS.map(c => c.key));
@@ -6759,12 +6825,59 @@ function ManualCandidatsSheet({ candidats, tasks = [], wsId, onClose, onSave, sa
   useEffect(() => {
     if (!wsId) return;
     let alive = true;
-    apiFetch(`/workspaces/${wsId}/formations`)
-      .then(r => {
-        if (!alive) return;
-        setFormations(normArr(extractArray(r, "formations")));
-      })
-      .catch(() => { if (alive) setFormations([]); });
+    (async () => {
+      const currentResults = await Promise.allSettled([
+        apiFetch(`/workspaces/${wsId}/formations`),
+        apiFetch(`/workspaces/${wsId}/candidats?limit=5000`),
+        apiFetch(`/workspaces/${wsId}/export-base`),
+      ]);
+      const [curFormationsRes, curCandidatsRes, curExportRes] = currentResults;
+      const currentFormations = curFormationsRes.status === "fulfilled" ? normArr(extractArray(curFormationsRes.value, "formations")) : [];
+      const currentCandidats = curCandidatsRes.status === "fulfilled" ? normArr(extractArray(curCandidatsRes.value, "candidats")) : [];
+      const currentExportData = curExportRes.status === "fulfilled" ? (curExportRes.value?.data || curExportRes.value || {}) : {};
+      const currentExportRows = Array.isArray(currentExportData.rows) ? currentExportData.rows : [];
+
+      let allFormations = [...currentFormations];
+      let allCandidats = [...currentCandidats];
+      let allExportRows = [...currentExportRows];
+
+      try {
+        const wsRes = await apiFetch("/workspaces");
+        const workspaces = normArr(extractArray(wsRes, "workspaces"));
+        const ownerScope = manualId(scopeOwnerId) || null;
+        const scopedWorkspaces = ownerScope
+          ? workspaces.filter(w => manualId(w.owner || w.ownerId) === ownerScope)
+          : workspaces;
+        const ids = Array.from(new Set(scopedWorkspaces.map(w => w.id || w._id).filter(Boolean)));
+        const otherIds = ids.filter(id => String(id) !== String(wsId));
+        const workspaceResults = await Promise.allSettled(otherIds.map(async id => {
+          const [formationsRes, candidatsRes, exportRes] = await Promise.allSettled([
+            apiFetch(`/workspaces/${id}/formations`),
+            apiFetch(`/workspaces/${id}/candidats?limit=5000`),
+            apiFetch(`/workspaces/${id}/export-base`),
+          ]);
+          const exportData = exportRes.status === "fulfilled" ? (exportRes.value?.data || exportRes.value || {}) : {};
+          return {
+            formations: formationsRes.status === "fulfilled" ? normArr(extractArray(formationsRes.value, "formations")) : [],
+            candidats: candidatsRes.status === "fulfilled" ? normArr(extractArray(candidatsRes.value, "candidats")) : [],
+            rows: Array.isArray(exportData.rows) ? exportData.rows : [],
+          };
+        }));
+        workspaceResults.forEach(res => {
+          if (res.status !== "fulfilled") return;
+          allFormations.push(...res.value.formations);
+          allCandidats.push(...res.value.candidats);
+          allExportRows.push(...res.value.rows);
+        });
+      } catch (e) {
+        // Les suggestions du workspace courant restent disponibles si la liste globale échoue.
+      }
+
+      if (!alive) return;
+      setFormations(allFormations);
+      setDbCandidats(allCandidats);
+      setExportRows(allExportRows);
+    })();
     return () => { alive = false; };
   }, [wsId]);
 
@@ -6772,11 +6885,11 @@ function ManualCandidatsSheet({ candidats, tasks = [], wsId, onClose, onSave, sa
     const map = {};
     columns.forEach(col => {
       const values = new Set();
-      candidats.forEach(c => {
-        const value = c[col.key] ?? c.extraData?.[col.label] ?? c.extraData?.[col.key] ?? "";
+      [...candidats, ...dbCandidats, ...exportRows].forEach(c => {
+        const value = manualValueFrom(c, col);
         if (String(value).trim()) values.add(String(value).trim());
       });
-      if (col.key === "theme") {
+      if (manualIsThemeColumn(col)) {
         formations.forEach(f => {
           const value = f.intitule || f.theme || f.name || f.nom || "";
           if (String(value).trim()) values.add(String(value).trim());
@@ -6789,7 +6902,7 @@ function ManualCandidatsSheet({ candidats, tasks = [], wsId, onClose, onSave, sa
       map[col.key] = Array.from(values).sort((a, b) => a.localeCompare(b)).slice(0, 80);
     });
     return map;
-  }, [candidats, formations, tasks, columns]);
+  }, [candidats, dbCandidats, exportRows, formations, tasks, columns]);
 
   const visibleSuggestions = useMemo(() => {
     if (!activeCell) return [];
@@ -6806,9 +6919,11 @@ function ManualCandidatsSheet({ candidats, tasks = [], wsId, onClose, onSave, sa
     if (!resizing) return;
     const onMove = e => {
       if (resizing.type === "width") {
-        setCellW(Math.max(110, Math.min(420, resizing.startW + (e.clientX - resizing.startX))));
+        const width = Math.max(90, Math.min(520, resizing.startW + (e.clientX - resizing.startX)));
+        setColumnWidths(prev => ({ ...prev, [resizing.key]: width }));
       } else {
-        setCellH(Math.max(28, Math.min(96, resizing.startH + (e.clientY - resizing.startY))));
+        const height = Math.max(26, Math.min(140, resizing.startH + (e.clientY - resizing.startY)));
+        setRowHeights(prev => ({ ...prev, [resizing.rowIndex]: height }));
       }
     };
     const onUp = () => setResizing(null);
@@ -6823,6 +6938,27 @@ function ManualCandidatsSheet({ candidats, tasks = [], wsId, onClose, onSave, sa
       document.body.style.userSelect = "";
     };
   }, [resizing]);
+
+  const getColW = key => columnWidths[key] || 165;
+  const getRowH = idx => rowHeights[idx] || 32;
+  const measureTextW = text => Math.min(520, Math.max(90, String(text || "").length * 7.2 + 28));
+  const autoFitColumn = key => {
+    const col = columns.find(c => c.key === key);
+    if (!col) return;
+    const values = [col.label, ...rows.map(r => r[key] || "")];
+    const width = Math.ceil(Math.max(...values.map(measureTextW)));
+    setColumnWidths(prev => ({ ...prev, [key]: width }));
+  };
+  const autoFitRow = rowIndex => {
+    const row = rows[rowIndex] || {};
+    const height = Math.ceil(Math.max(32, ...columns.map(col => {
+      const text = String(row[col.key] || "");
+      const width = Math.max(60, getColW(col.key) - 18);
+      const lines = Math.max(1, Math.ceil((text.length * 7.2) / width));
+      return lines * 18 + 10;
+    })));
+    setRowHeights(prev => ({ ...prev, [rowIndex]: Math.min(140, height) }));
+  };
 
   useEffect(() => {
     if (!fillDrag) return;
@@ -6910,6 +7046,13 @@ function ManualCandidatsSheet({ candidats, tasks = [], wsId, onClose, onSave, sa
   };
 
   const filledRows = rows.filter(r => columns.some(c => String(r[c.key] || "").trim()));
+  const hasManualChanges = filledRows.length > 0 || newColumn.trim() || columns.length !== MANUAL_DEFAULT_COLS.length;
+
+  const requestClose = () => {
+    if (saving) return;
+    if (hasManualChanges) setShowCloseConfirm(true);
+    else onClose();
+  };
 
   const buildCandidates = () => {
     const invalid = filledRows.findIndex(r => MANUAL_REQUIRED_COLS.some(c => !String(r[c.key] || "").trim()));
@@ -6943,7 +7086,17 @@ function ManualCandidatsSheet({ candidats, tasks = [], wsId, onClose, onSave, sa
   };
 
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:600, background:"rgba(0,0,0,0.35)", display:"flex", alignItems:"center", justifyContent:"center", padding:18 }} onMouseDown={e=>{ if(e.target===e.currentTarget) onClose(); }}>
+    <div style={{ position:"fixed", inset:0, zIndex:600, background:"rgba(0,0,0,0.35)", display:"flex", alignItems:"center", justifyContent:"center", padding:18 }} onMouseDown={e=>{ if(e.target===e.currentTarget) requestClose(); }}>
+      {showCloseConfirm && (
+        <ConfirmModal
+          title="Quitter la saisie ?"
+          message="Les lignes et colonnes saisies dans ce tableau ne seront pas enregistrées."
+          confirmLabel="Quitter"
+          cancelLabel="Continuer"
+          onConfirm={() => { setShowCloseConfirm(false); onClose(); }}
+          onCancel={() => setShowCloseConfirm(false)}
+        />
+      )}
       <div style={{ width:"min(1180px,96vw)", maxHeight:"90vh", background:"#fff", borderRadius:8, border:`1px solid ${T.pageBdr}`, boxShadow:"0 18px 55px rgba(0,0,0,0.2)", display:"flex", flexDirection:"column", overflow:"hidden" }}>
         <div style={{ padding:"16px 18px", borderBottom:`1px solid ${T.pageBdr}`, display:"flex", alignItems:"center", gap:12 }}>
           <Table2 style={{ width:18, height:18, color:T.pageSub }} />
@@ -6951,7 +7104,7 @@ function ManualCandidatsSheet({ candidats, tasks = [], wsId, onClose, onSave, sa
             <div style={{ fontSize:16, fontWeight:700, color:T.pageText }}>Saisie manuelle type Excel</div>
             <div style={{ fontSize:12, color:T.pageSub, marginTop:2 }}>Ajoutez vos colonnes librement. Les colonnes marquées * restent obligatoires.</div>
           </div>
-          <button onClick={onClose} style={{ width:28, height:28, display:"flex", alignItems:"center", justifyContent:"center", border:"none", background:"transparent", color:T.pageSub, cursor:"pointer", borderRadius:4 }}><X style={{ width:15, height:15 }}/></button>
+          <button onClick={requestClose} style={{ width:28, height:28, display:"flex", alignItems:"center", justifyContent:"center", border:"none", background:"transparent", color:T.pageSub, cursor:"pointer", borderRadius:4 }}><X style={{ width:15, height:15 }}/></button>
         </div>
 
         <div style={{ padding:"12px 18px", borderBottom:`1px solid ${T.pageBdr}`, display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", background:"rgba(55,53,47,0.015)" }}>
@@ -6973,17 +7126,18 @@ function ManualCandidatsSheet({ candidats, tasks = [], wsId, onClose, onSave, sa
           <table style={{ borderCollapse:"collapse", width:"max-content", minWidth:"100%", fontSize:13 }}>
             <thead>
               <tr>
-                <th style={{ position:"sticky", left:0, top:0, zIndex:3, width:42, minWidth:42, height:cellH, background:"#f7f7f7", borderBottom:`1px solid ${T.pageBdr}`, borderRight:`1px solid ${T.pageBdr}`, color:T.pageTer, fontSize:11, fontWeight:600 }}>
-                  <div onMouseDown={e=>setResizing({ type:"height", startY:e.clientY, startH:cellH })} style={{ position:"absolute", left:0, right:0, bottom:-3, height:6, cursor:"row-resize", zIndex:5 }} />
-                </th>
+                <th style={{ position:"sticky", left:0, top:0, zIndex:3, width:42, minWidth:42, height:32, background:"#f7f7f7", borderBottom:`1px solid ${T.pageBdr}`, borderRight:`1px solid ${T.pageBdr}`, color:T.pageTer, fontSize:11, fontWeight:600 }} />
                 {columns.map(col => (
-                  <th key={col.key} style={{ position:"sticky", top:0, zIndex:2, minWidth:cellW, width:cellW, height:cellH, background:"#f7f7f7", borderBottom:`1px solid ${T.pageBdr}`, borderRight:`1px solid ${T.pageBdr}`, padding:"7px 8px", textAlign:"left", color:T.pageText, fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.04em" }}>
+                  <th key={col.key} style={{ position:"sticky", top:0, zIndex:2, minWidth:getColW(col.key), width:getColW(col.key), height:32, background:"#f7f7f7", borderBottom:`1px solid ${T.pageBdr}`, borderRight:`1px solid ${T.pageBdr}`, padding:"7px 8px", textAlign:"left", color:T.pageText, fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.04em" }}>
                     <div style={{ display:"flex", alignItems:"center", gap:6 }}>
                       <span style={{ flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{col.label}{requiredKeys.has(col.key) ? " *" : ""}</span>
                       {!requiredKeys.has(col.key) && <button onClick={()=>removeColumn(col.key)} style={{ border:"none", background:"transparent", color:T.pageTer, cursor:"pointer", padding:0, display:"flex" }}><X style={{ width:11, height:11 }}/></button>}
                     </div>
-                    <div onMouseDown={e=>setResizing({ type:"width", startX:e.clientX, startW:cellW })} style={{ position:"absolute", top:0, right:-3, width:6, height:"100%", cursor:"col-resize", zIndex:5 }} />
-                    <div onMouseDown={e=>setResizing({ type:"height", startY:e.clientY, startH:cellH })} style={{ position:"absolute", left:0, right:0, bottom:-3, height:6, cursor:"row-resize", zIndex:5 }} />
+                    <div
+                      onDoubleClick={e=>{ e.preventDefault(); autoFitColumn(col.key); }}
+                      onMouseDown={e=>setResizing({ type:"width", key:col.key, startX:e.clientX, startW:getColW(col.key) })}
+                      style={{ position:"absolute", top:0, right:-3, width:6, height:"100%", cursor:"col-resize", zIndex:5 }}
+                    />
                   </th>
                 ))}
               </tr>
@@ -6991,15 +7145,22 @@ function ManualCandidatsSheet({ candidats, tasks = [], wsId, onClose, onSave, sa
             <tbody>
               {rows.map((row, idx) => (
                 <tr key={row._id}>
-                  <td style={{ position:"sticky", left:0, zIndex:1, background:"#fafafa", width:42, minWidth:42, height:cellH, textAlign:"center", color:T.pageTer, borderRight:`1px solid ${T.pageBdr}`, borderBottom:`1px solid ${T.pageBdr}`, fontSize:11 }}>{idx + 1}</td>
+                  <td style={{ position:"sticky", left:0, zIndex:1, background:"#fafafa", width:42, minWidth:42, height:getRowH(idx), textAlign:"center", color:T.pageTer, borderRight:`1px solid ${T.pageBdr}`, borderBottom:`1px solid ${T.pageBdr}`, fontSize:11, position:"sticky" }}>
+                    {idx + 1}
+                    <div
+                      onDoubleClick={e=>{ e.preventDefault(); autoFitRow(idx); }}
+                      onMouseDown={e=>setResizing({ type:"height", rowIndex:idx, startY:e.clientY, startH:getRowH(idx) })}
+                      style={{ position:"absolute", left:0, right:0, bottom:-3, height:6, cursor:"row-resize", zIndex:5 }}
+                    />
+                  </td>
                   {columns.map(col => (
-                    <td key={col.key} onMouseEnter={()=>continueFillDrag(idx, col.key)} style={{ minWidth:cellW, width:cellW, height:cellH, borderRight:`1px solid ${T.pageBdr}`, borderBottom:`1px solid ${T.pageBdr}`, padding:0, background:fillDrag?.key===col.key&&idx!==fillDrag.startIndex&&idx>=Math.min(fillDrag.startIndex,fillDrag.targetIndex)&&idx<=Math.max(fillDrag.startIndex,fillDrag.targetIndex)?"rgba(15,125,219,0.08)":"#fff", position:"relative" }}>
+                    <td key={col.key} onMouseEnter={()=>continueFillDrag(idx, col.key)} style={{ minWidth:getColW(col.key), width:getColW(col.key), height:getRowH(idx), borderRight:`1px solid ${T.pageBdr}`, borderBottom:`1px solid ${T.pageBdr}`, padding:0, background:fillDrag?.key===col.key&&idx!==fillDrag.startIndex&&idx>=Math.min(fillDrag.startIndex,fillDrag.targetIndex)&&idx<=Math.max(fillDrag.startIndex,fillDrag.targetIndex)?"rgba(15,125,219,0.08)":"#fff", position:"relative" }}>
                       <input
                         value={row[col.key] || ""}
                         onFocus={e=>activateCell(e, idx, col.key)}
                         onChange={e=>{ activateCell(e, idx, col.key); updateCell(row._id, col.key, e.target.value); }}
                         onKeyDown={e=>{ if(e.key==="Enter") { setActiveCell({ rowIndex:Math.min(rows.length-1, idx+1), key:col.key }); setSuggestRect(null); } }}
-                        style={{ width:"100%", height:cellH, boxSizing:"border-box", border:"none", outline:"none", padding:"0 8px", fontSize:13, fontFamily:"inherit", color:T.pageText, background:"transparent" }}
+                        style={{ width:"100%", height:getRowH(idx), boxSizing:"border-box", border:"none", outline:"none", padding:"0 8px", fontSize:13, fontFamily:"inherit", color:T.pageText, background:"transparent" }}
                       />
                       {activeCell?.rowIndex===idx&&activeCell?.key===col.key&&String(row[col.key]||"").trim()&&(
                         <div
@@ -7046,7 +7207,7 @@ function ManualCandidatsSheet({ candidats, tasks = [], wsId, onClose, onSave, sa
         )}
 
         <div style={{ padding:"12px 18px", borderTop:`1px solid ${T.pageBdr}`, display:"flex", justifyContent:"flex-end", gap:8, background:"rgba(55,53,47,0.02)" }}>
-          <button onClick={onClose} disabled={saving} style={{ padding:"7px 14px", fontSize:13, color:T.pageSub, background:"transparent", border:`1px solid rgba(55,53,47,0.2)`, borderRadius:4, cursor:saving?"not-allowed":"pointer", fontFamily:"inherit" }}>Annuler</button>
+          <button onClick={requestClose} disabled={saving} style={{ padding:"7px 14px", fontSize:13, color:T.pageSub, background:"transparent", border:`1px solid rgba(55,53,47,0.2)`, borderRadius:4, cursor:saving?"not-allowed":"pointer", fontFamily:"inherit" }}>Annuler</button>
           <button onClick={handleSave} disabled={saving} style={{ padding:"7px 14px", fontSize:13, fontWeight:600, color:"#fff", background:saving?"#8d8a83":"#37352f", border:"none", borderRadius:4, cursor:saving?"not-allowed":"pointer", fontFamily:"inherit" }}>{saving ? "Enregistrement..." : `Enregistrer ${filledRows.length || ""}`}</button>
         </div>
       </div>
@@ -9479,7 +9640,7 @@ function CandidatsView({ currentUser, candidats, setCandidats, tasks, setTasks, 
   return (
     <div style={{ padding: pagePadding, width:"100%", boxSizing:"border-box" }}>
       {modal && <CModal item={modal==="new"?null:modal} onClose={()=>setModal(null)} onSave={save} />}
-      {manualOpen && <ManualCandidatsSheet candidats={candidats} tasks={tasks} wsId={wsId} onClose={()=>setManualOpen(false)} onSave={saveManualRows} saving={saving} />}
+      {manualOpen && <ManualCandidatsSheet candidats={candidats} tasks={tasks} wsId={wsId} scopeOwnerId={ws?.owner || ws?.ownerId || null} onClose={()=>setManualOpen(false)} onSave={saveManualRows} saving={saving} />}
 
       {/* ── Titre ── */}
       <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
@@ -9638,7 +9799,7 @@ function CandidatsView({ currentUser, candidats, setCandidats, tasks, setTasks, 
               />
             )}
 
-            <button onClick={()=>setManualOpen(true)} style={{ display:"flex", alignItems:"center", gap:5, height:26, padding:"0 10px", fontSize:12, fontWeight:500, color:"#fff", background:"#37352f", border:"none", borderRadius:4, cursor:"pointer", fontFamily:"inherit" }}>
+            <button onClick={()=>setManualOpen(true)} style={{ display:"none", alignItems:"center", gap:5, height:26, padding:"0 10px", fontSize:12, fontWeight:500, color:"#fff", background:"#37352f", border:"none", borderRadius:4, cursor:"pointer", fontFamily:"inherit" }}>
               <Table2 style={{ width:12, height:12 }}/>{!isMobile&&" Saisie manuelle"}
             </button>
           </div>
@@ -9695,7 +9856,7 @@ function CandidatsView({ currentUser, candidats, setCandidats, tasks, setTasks, 
                   <FileStack style={{ width:14, height:14 }}/>Importer
                 </button>
               )}
-              <button onClick={()=>setManualOpen(true)} style={{ display:"flex", alignItems:"center", gap:6, height:32, padding:"0 12px", fontSize:13, fontWeight:600, color:"#fff", background:"#37352f", border:"none", borderRadius:4, cursor:"pointer", fontFamily:"inherit" }}>
+              <button onClick={()=>setManualOpen(true)} style={{ display:"none", alignItems:"center", gap:6, height:32, padding:"0 12px", fontSize:13, fontWeight:600, color:"#fff", background:"#37352f", border:"none", borderRadius:4, cursor:"pointer", fontFamily:"inherit" }}>
                 <Table2 style={{ width:14, height:14 }}/>Saisie manuelle
               </button>
             </div>
@@ -14020,7 +14181,7 @@ function DocsView({currentUser, documents, setDocuments, wsId, showToast, candid
         )}
 
         <button onClick={onManualCandidats} style={{
-          display: "flex", alignItems: "center", gap: 5, height: 26, padding: "0 10px",
+          display: "none", alignItems: "center", gap: 5, height: 26, padding: "0 10px",
           fontSize: 13, fontWeight: 500, color: T.pageText, background: "transparent",
           border: `1px solid rgba(55,53,47,0.25)`, borderRadius: 4, cursor: "pointer", fontFamily: "inherit",
         }}>
@@ -14041,7 +14202,7 @@ function DocsView({currentUser, documents, setDocuments, wsId, showToast, candid
                 <FileStack style={{ width:14, height:14 }}/>Importer
               </button>
             )}
-            <button onClick={onManualCandidats} style={{ display:"flex", alignItems:"center", gap:6, height:32, padding:"0 12px", fontSize:13, fontWeight:600, color:"#fff", background:"#37352f", border:"none", borderRadius:4, cursor:"pointer", fontFamily:"inherit" }}>
+            <button onClick={onManualCandidats} style={{ display:"none", alignItems:"center", gap:6, height:32, padding:"0 12px", fontSize:13, fontWeight:600, color:"#fff", background:"#37352f", border:"none", borderRadius:4, cursor:"pointer", fontFamily:"inherit" }}>
               <Table2 style={{ width:14, height:14 }}/>Saisie manuelle
             </button>
           </div>
@@ -15028,6 +15189,7 @@ const updateWs = (updatedRaw) => {
           candidats={cands}
           tasks={tasks}
           wsId={activeWs}
+          scopeOwnerId={ws?.owner || ws?.ownerId || null}
           onClose={() => setGlobalManualOpen(false)}
           onSave={saveGlobalManualRows}
           saving={globalManualSaving}
