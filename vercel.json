@@ -21,10 +21,6 @@
     {
       "src": "/uploads/(.*)",
       "dest": "backend/server.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
     }
   ]
 }
