@@ -31,11 +31,12 @@ app.use(cors({
       'https://gantt-pied.vercel.app',
       'https://m2s-formaplan.vercel.app',
       'https://format-plan.vercel.app',
+      'https://forma-plan.vercel.app',
       'https://formaplan-production.up.railway.app',
       'https://formatplan-production-4aa2.up.railway.app',
     ];
-    // Allow all *.railway.app subdomains + requests without origin (Postman, server-to-server)
-    if (!origin || allowed.includes(origin) || /\.railway\.app$/.test(origin)) {
+    // Allow all *.railway.app and *.vercel.app subdomains + requests without origin
+    if (!origin || allowed.includes(origin) || /\.railway\.app$/.test(origin) || /\.vercel\.app$/.test(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
