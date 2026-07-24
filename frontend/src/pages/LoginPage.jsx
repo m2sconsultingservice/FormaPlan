@@ -324,35 +324,31 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
-            <>
-              {/* Séparateur */}
-              <div style={{
-                display: "flex",
-                alignItems: "center",
-                margin: "24px 0",
-                gap: 12,
-              }}>
-                <div style={{ flex: 1, height: 1, background: "#e3e3e2" }} />
-                <span style={{ fontSize: 12, color: "#9b9a97", fontWeight: 500 }}>OU</span>
-                <div style={{ flex: 1, height: 1, background: "#e3e3e2" }} />
-              </div>
+          {/* Séparateur */}
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            margin: "24px 0",
+            gap: 12,
+          }}>
+            <div style={{ flex: 1, height: 1, background: "#e3e3e2" }} />
+            <span style={{ fontSize: 12, color: "#9b9a97", fontWeight: 500 }}>OU</span>
+            <div style={{ flex: 1, height: 1, background: "#e3e3e2" }} />
+          </div>
 
-              {/* Google Login */}
-              <div style={{ display: "flex", justifyContent: "center" }}>
-                <GoogleLogin
-                  onSuccess={handleGoogleSuccess}
-                  onError={() => setError("Erreur lors de l'authentification Google.")}
-                  useOneTap
-                  theme="outline"
-                  size="large"
-                  width="100%"
-                  text="continue_with"
-                  shape="rectangular"
-                />
-              </div>
-            </>
-          )}
+          {/* Google Login */}
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => setError("Erreur lors de l'authentification Google.")}
+              useOneTap
+              theme="outline"
+              size="large"
+              width="100%"
+              text="continue_with"
+              shape="rectangular"
+            />
+          </div>
 
           {/* Toggle Register / Login */}
           <div style={{ textAlign: "center", marginTop: 20 }}>
